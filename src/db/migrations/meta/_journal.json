@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1768945880797,
+      "tag": "0000_powerful_talos",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768950307783,
+      "tag": "0001_amusing_william_stryker",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769007682507,
+      "tag": "0002_short_joystick",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1769016662232,
+      "tag": "0003_ambiguous_mercury",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1769017694055,
+      "tag": "0004_ordinary_lightspeed",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1769018347790,
+      "tag": "0005_lively_overlord",
+      "breakpoints": true
+    }
+  ]
+}

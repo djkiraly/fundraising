@@ -1,0 +1,1 @@
+ALTER TABLE "players" ADD COLUMN "parent_email" varchar(255);
