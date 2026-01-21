@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { players, donations, donationsAuditLog } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
+import { logManualDonation } from '@/lib/audit';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .where(eq(players.id, playerId));
 
-    // Create audit log entry
+    // Create audit log entries
     await db.insert(donationsAuditLog).values({
       donationId: newDonation.id,
       playerId,
@@ -97,6 +98,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         newTotal,
         adminEmail: session.user.email,
       }),
+    });
+
+    // Log to general audit log
+    await logManualDonation({
+      userId: session.user.id,
+      donationId: newDonation.id,
+      playerId,
+      amount: donationAmount,
+      donorName: donorName || null,
+      paymentMethod,
+      notes: notes || null,
     });
 
     return NextResponse.json({

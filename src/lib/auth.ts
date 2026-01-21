@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { logLogin, logLoginFailed } from '@/lib/audit';
 
 declare module 'next-auth' {
   interface Session {
@@ -36,6 +37,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          await logLoginFailed({
+            email: credentials?.email as string || 'unknown',
+            reason: 'Missing credentials',
+          });
           throw new Error('Invalid credentials');
         }
 
@@ -46,6 +51,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           .limit(1);
 
         if (!user) {
+          await logLoginFailed({
+            email: credentials.email as string,
+            reason: 'User not found',
+          });
           throw new Error('No user found with this email');
         }
 
@@ -55,6 +64,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         );
 
         if (!isValidPassword) {
+          await logLoginFailed({
+            email: credentials.email as string,
+            reason: 'Invalid password',
+          });
           throw new Error('Invalid password');
         }
 
@@ -81,6 +94,17 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         session.user.role = token.role as 'admin' | 'player';
       }
       return session;
+    },
+  },
+  events: {
+    async signIn({ user }) {
+      // Log successful login
+      if (user.id && user.email) {
+        await logLogin({
+          userId: user.id,
+          email: user.email,
+        });
+      }
     },
   },
   pages: {

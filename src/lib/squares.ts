@@ -2,10 +2,25 @@ import { db } from '@/db';
 import { squares } from '@/db/schema';
 
 /**
+ * Standard heart grid configuration
+ * All players get exactly the same heart shape with 97 squares
+ */
+export const HEART_GRID_SIZE = 15;
+export const HEART_SQUARE_COUNT = 97;
+
+/**
+ * Pre-computed heart coordinates for consistent grid across all players
+ * Generated using the parametric heart curve equation
+ */
+export const STANDARD_HEART_COORDINATES: ReadonlyArray<{ x: number; y: number }> = Object.freeze(
+  generateHeartCoordinates()
+);
+
+/**
  * Generate heart-shaped grid squares for a player and insert them into the database
  */
 export async function generateHeartSquares(playerId: string): Promise<void> {
-  const heartCoords = generateHeartCoordinates();
+  const heartCoords = STANDARD_HEART_COORDINATES;
   const values = generateSquareValues(heartCoords.length);
 
   const squareData = heartCoords.map((coord, index) => ({
@@ -28,7 +43,7 @@ export function generateHeartGridSquares(targetGoal: number = 100): Array<{
   y: number;
   value: number;
 }> {
-  const heartCoords = generateHeartCoordinates();
+  const heartCoords = STANDARD_HEART_COORDINATES;
   const values = generateSquareValuesForGoal(heartCoords.length, targetGoal);
 
   return heartCoords.map((coord, index) => ({
@@ -124,27 +139,30 @@ function generateSquareValuesForGoal(count: number, targetGoal: number): number[
 
 /**
  * Generate heart-shaped coordinates for the grid
+ * Uses the parametric heart curve equation: (x² + y² - 1)³ - x²y³ < 0
+ * This produces exactly 97 squares with a 15x15 grid
  */
 function generateHeartCoordinates(): { x: number; y: number }[] {
-  const coords: { x: number; y: number }[] = [];
-  const gridSize = 20;
-  const centerX = gridSize / 2;
-  const centerY = gridSize / 2;
-  const scale = 0.8;
+  const coordinates: { x: number; y: number }[] = [];
+  const gridSize = HEART_GRID_SIZE;
+  const centerX = Math.floor(gridSize / 2);
+  const centerY = Math.floor(gridSize / 2);
+  const scale = 6; // Scale factor for the heart size
 
   for (let y = 0; y < gridSize; y++) {
     for (let x = 0; x < gridSize; x++) {
-      const nx = ((x - centerX) / centerX) * 1.2;
-      const ny = ((centerY - y) / centerY) * 1.2;
+      // Normalize coordinates to -1 to 1 range, flip Y so heart points down
+      const nx = (x - centerX) / scale;
+      const ny = -(y - centerY) / scale; // Flip Y axis
 
-      const heartX = nx / scale;
-      const heartY = (ny - Math.sqrt(Math.abs(nx)) * 0.7) / scale;
+      // Heart curve equation: (x² + y² - 1)³ - x²y³ < 0
+      const value = Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * Math.pow(ny, 3);
 
-      if (heartX * heartX + heartY * heartY <= 1) {
-        coords.push({ x, y });
+      if (value < 0) {
+        coordinates.push({ x, y });
       }
     }
   }
 
-  return coords;
+  return coordinates;
 }

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { players, donations, users } from '@/db/schema';
@@ -10,6 +11,7 @@ import { UsersList } from '@/components/admin/users-list';
 import { BulkImport } from '@/components/admin/bulk-import';
 import { DonationsChart } from '@/components/admin/donations-chart';
 import { formatCurrency } from '@/lib/utils';
+import { ClipboardList } from 'lucide-react';
 
 /**
  * Admin dashboard
@@ -102,6 +104,32 @@ export default async function AdminPage() {
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Admin Users</h2>
             <UsersList users={adminUsers} currentUserId={session.user.id} />
+          </div>
+
+          {/* Audit Logs Link */}
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Activity Monitoring</h2>
+            <div className="card">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-primary-pink-light rounded-lg flex items-center justify-center">
+                    <ClipboardList className="w-6 h-6 text-primary-pink" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Audit Logs</h3>
+                    <p className="text-sm text-gray-600">
+                      View user logins, donations, and administrative actions
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/admin/audit-logs"
+                  className="btn-primary"
+                >
+                  View Logs
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </main>

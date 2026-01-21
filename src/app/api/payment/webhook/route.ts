@@ -5,6 +5,7 @@ import { squares, donations, players } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { processPostDonationEmails } from '@/lib/email-service';
+import { logDonationCompleted, logDonationFailed } from '@/lib/audit';
 
 /**
  * Stripe webhook handler
@@ -86,7 +87,7 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
       .where(eq(squares.id, squareId));
 
     // Create donation record
-    await db.insert(donations).values({
+    const [newDonation] = await db.insert(donations).values({
       playerId,
       squareId,
       amount: amount.toFixed(2),
@@ -98,6 +99,15 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
       stripeCustomerId: paymentIntent.customer as string | null,
       status: 'succeeded',
       completedAt: new Date(),
+    }).returning();
+
+    // Log to audit log
+    await logDonationCompleted({
+      donationId: newDonation.id,
+      playerId,
+      amount: amount.toFixed(2),
+      donorName: donorName || null,
+      paymentProvider: 'stripe',
     });
 
     // Update player's total raised
@@ -141,13 +151,22 @@ async function handlePaymentFailure(paymentIntent: Stripe.PaymentIntent) {
 
   try {
     // Record the failed donation
-    await db.insert(donations).values({
+    const [failedDonation] = await db.insert(donations).values({
       playerId,
       squareId,
       amount: (paymentIntent.amount / 100).toFixed(2),
       paymentProvider: 'stripe',
       stripePaymentIntentId: paymentIntent.id,
       status: 'failed',
+    }).returning();
+
+    // Log to audit log
+    await logDonationFailed({
+      donationId: failedDonation.id,
+      playerId,
+      amount: (paymentIntent.amount / 100).toFixed(2),
+      reason: paymentIntent.last_payment_error?.message || 'Payment failed',
+      paymentProvider: 'stripe',
     });
 
     console.log(`Payment failed for square ${squareId}`);

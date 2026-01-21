@@ -10,54 +10,7 @@ async function main() {
   const bcrypt = bcryptModule.default;
   const { encrypt } = await import('../lib/encryption');
   const { generateSlug } = await import('../lib/utils');
-
-  /**
-   * Generate heart-shaped grid coordinates
-   * Uses the parametric heart curve equation for a classic heart shape
-   */
-  function generateHeartCoordinates(): { x: number; y: number }[] {
-    const coordinates: { x: number; y: number }[] = [];
-    const gridSize = 15;
-    const centerX = Math.floor(gridSize / 2);
-    const centerY = Math.floor(gridSize / 2);
-    const scale = 6; // Scale factor for the heart size
-
-    for (let y = 0; y < gridSize; y++) {
-      for (let x = 0; x < gridSize; x++) {
-        // Normalize coordinates to -1 to 1 range, flip Y so heart points down
-        const nx = (x - centerX) / scale;
-        const ny = -(y - centerY) / scale; // Flip Y axis
-
-        // Heart curve equation: (x² + y² - 1)³ - x²y³ < 0
-        const value = Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * Math.pow(ny, 3);
-
-        if (value < 0) {
-          coordinates.push({ x, y });
-        }
-      }
-    }
-
-    return coordinates;
-  }
-
-  /**
-   * Generate random square values that sum to approximately $100
-   */
-  function generateSquareValues(count: number, targetTotal: number = 100): number[] {
-    const values: number[] = [];
-    let remaining = targetTotal;
-
-    for (let i = 0; i < count - 1; i++) {
-      const minValue = 5;
-      const maxValue = Math.min(25, remaining - (count - i - 1) * 5);
-      const value = Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue;
-      values.push(value);
-      remaining -= value;
-    }
-
-    values.push(Math.max(5, Math.min(25, remaining)));
-    return values.sort(() => Math.random() - 0.5);
-  }
+  const { STANDARD_HEART_COORDINATES, generateHeartGridSquares } = await import('../lib/squares');
 
   console.log('🌱 Seeding database...');
 
@@ -115,20 +68,20 @@ async function main() {
 
       console.log('✅ Created player:', playerName);
 
-      const heartCoordinates = generateHeartCoordinates();
-      const squareValues = generateSquareValues(heartCoordinates.length);
+      // Use standardized heart grid with 97 squares
+      const heartSquares = generateHeartGridSquares(100); // Target $100 goal
 
-      const squareData = heartCoordinates.map((coord, index) => ({
+      const squareData = heartSquares.map((square) => ({
         playerId: player.id,
-        positionX: coord.x,
-        positionY: coord.y,
-        value: squareValues[index].toFixed(2),
+        positionX: square.x,
+        positionY: square.y,
+        value: square.value.toFixed(2),
         isPurchased: false,
       }));
 
       await db.insert(squares).values(squareData);
 
-      console.log(`✅ Created ${squareData.length} squares for ${playerName}`);
+      console.log(`✅ Created ${squareData.length} squares for ${playerName} (standard heart: ${STANDARD_HEART_COORDINATES.length} positions)`);
     }
 
     // Seed Stripe settings from environment variables (if available)

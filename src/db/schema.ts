@@ -3,6 +3,20 @@ import { relations } from 'drizzle-orm';
 
 // Enums
 export const userRoleEnum = pgEnum('user_role', ['admin', 'player']);
+export const auditEventTypeEnum = pgEnum('audit_event_type', [
+  'login',
+  'logout',
+  'login_failed',
+  'donation_created',
+  'donation_completed',
+  'donation_failed',
+  'manual_donation',
+  'player_created',
+  'player_updated',
+  'player_deleted',
+  'password_reset_requested',
+  'password_reset_completed',
+]);
 
 // Users table (for authentication)
 export const users = pgTable('users', {
@@ -141,6 +155,19 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Audit logs table (for tracking user activity)
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  eventType: auditEventTypeEnum('event_type').notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  playerId: uuid('player_id').references(() => players.id, { onDelete: 'set null' }),
+  donationId: uuid('donation_id').references(() => donations.id, { onDelete: 'set null' }),
+  ipAddress: varchar('ip_address', { length: 45 }), // Supports IPv6
+  userAgent: text('user_agent'),
+  details: text('details'), // JSON string with additional context
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Donations audit log table (for tracking manual donations and adjustments)
 export const donationsAuditLog = pgTable('donations_audit_log', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -194,6 +221,21 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
   }),
 }));
 
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+  player: one(players, {
+    fields: [auditLogs.playerId],
+    references: [players.id],
+  }),
+  donation: one(donations, {
+    fields: [auditLogs.donationId],
+    references: [donations.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -211,3 +253,6 @@ export type DonationsAuditLog = typeof donationsAuditLog.$inferSelect;
 export type NewDonationsAuditLog = typeof donationsAuditLog.$inferInsert;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
+export type AuditEventType = typeof auditEventTypeEnum.enumValues[number];

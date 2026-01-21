@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { squares, donations, players } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { processPostDonationEmails } from '@/lib/email-service';
+import { logDonationCompleted, logDonationFailed } from '@/lib/audit';
 
 interface SquareWebhookEvent {
   merchant_id: string;
@@ -136,6 +137,11 @@ async function handlePaymentCompleted(event: SquareWebhookEvent) {
     }
 
     // Update or create donation record
+    let donationId: string;
+    const donationAmount = payment.amount_money?.amount
+      ? (Number(payment.amount_money.amount) / 100).toFixed(2)
+      : square.value;
+
     if (existingDonation) {
       await db
         .update(donations)
@@ -144,22 +150,29 @@ async function handlePaymentCompleted(event: SquareWebhookEvent) {
           completedAt: new Date(),
         })
         .where(eq(donations.id, existingDonation.id));
+      donationId = existingDonation.id;
     } else {
-      const amount = payment.amount_money?.amount
-        ? (Number(payment.amount_money.amount) / 100).toFixed(2)
-        : square.value;
-
-      await db.insert(donations).values({
+      const [newDonation] = await db.insert(donations).values({
         playerId: square.playerId,
         squareId: square.id,
-        amount,
+        amount: donationAmount,
         paymentProvider: 'square',
         squarePaymentId: paymentId,
         squareOrderId: payment.order_id,
         status: 'succeeded',
         completedAt: new Date(),
-      });
+      }).returning();
+      donationId = newDonation.id;
     }
+
+    // Log to audit log
+    await logDonationCompleted({
+      donationId,
+      playerId: square.playerId,
+      amount: donationAmount,
+      donorName: existingDonation?.donorName || null,
+      paymentProvider: 'square',
+    });
 
     // Update player's total raised (only if donation wasn't already succeeded)
     let previousTotal = 0;
@@ -240,11 +253,18 @@ async function handlePaymentFailed(event: SquareWebhookEvent) {
       .where(eq(donations.squarePaymentId, paymentId))
       .limit(1);
 
+    let donationId: string | undefined;
+    let playerId: string | undefined;
+    let failedAmount: string | undefined;
+
     if (existingDonation) {
       await db
         .update(donations)
         .set({ status: 'failed' })
         .where(eq(donations.id, existingDonation.id));
+      donationId = existingDonation.id;
+      playerId = existingDonation.playerId;
+      failedAmount = existingDonation.amount;
     } else {
       // Get square to get playerId
       const [square] = await db
@@ -258,7 +278,7 @@ async function handlePaymentFailed(event: SquareWebhookEvent) {
           ? (Number(payment.amount_money.amount) / 100).toFixed(2)
           : square.value;
 
-        await db.insert(donations).values({
+        const [newDonation] = await db.insert(donations).values({
           playerId: square.playerId,
           squareId: square.id,
           amount,
@@ -266,8 +286,23 @@ async function handlePaymentFailed(event: SquareWebhookEvent) {
           squarePaymentId: paymentId,
           squareOrderId: payment.order_id,
           status: 'failed',
-        });
+        }).returning();
+
+        donationId = newDonation.id;
+        playerId = square.playerId;
+        failedAmount = amount;
       }
+    }
+
+    // Log to audit log
+    if (playerId) {
+      await logDonationFailed({
+        donationId,
+        playerId,
+        amount: failedAmount,
+        reason: 'Square payment failed',
+        paymentProvider: 'square',
+      });
     }
 
     console.log(`Square payment ${paymentId} failed`);

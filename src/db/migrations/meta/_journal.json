@@ -43,6 +43,13 @@
       "when": 1769018347790,
       "tag": "0005_lively_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1769030886354,
+      "tag": "0006_sticky_captain_universe",
+      "breakpoints": true
     }
   ]
 }
