@@ -104,7 +104,9 @@ export function DonationFeed({ donations, squares, showPaymentMethod = true }: D
                 </div>
                 <div>
                   <div className="font-semibold text-gray-900">{donorDisplay}</div>
-                  <div className="text-xs text-gray-500">{formatDateTime(donation.createdAt)}</div>
+                  <div className="text-xs text-gray-500" suppressHydrationWarning>
+                    {formatDateTime(donation.createdAt)}
+                  </div>
                 </div>
               </div>
               <div className="text-xl font-bold text-primary-pink">
