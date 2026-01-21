@@ -505,7 +505,7 @@ export function PlayersList({ players }: PlayersListProps) {
                         )}
                       </button>
                       <Link
-                        href={`/player/${player.id}`}
+                        href={`/player/${player.slug}`}
                         target="_blank"
                         className="p-1.5 text-primary-pink hover:text-primary-pink-dark hover:bg-pink-50 rounded"
                         title="View player page"

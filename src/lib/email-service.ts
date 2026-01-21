@@ -198,7 +198,7 @@ export async function checkAndSendMilestone(data: {
       currentAmount: data.newTotal.toFixed(2),
       goalAmount: goal.toFixed(2),
       appName: APP_NAME,
-      appUrl: `${appUrl}/player/${player.id}`,
+      appUrl: `${appUrl}/player/${player.slug}`,
     });
 
     const title = milestone === '100%' ? 'Goal Achieved!' : 'Halfway There!';
@@ -223,7 +223,7 @@ export async function checkAndSendMilestone(data: {
  * Send welcome email to new player
  */
 export async function sendWelcomeEmail(data: {
-  playerId: string;
+  playerSlug: string;
   playerName: string;
   userEmail: string;
   goalAmount: string;
@@ -239,7 +239,7 @@ export async function sendWelcomeEmail(data: {
     const html = getWelcomeEmailHtml({
       playerName: data.playerName,
       playerEmail: data.userEmail,
-      fundraiserUrl: `${appUrl}/player/${data.playerId}`,
+      fundraiserUrl: `${appUrl}/player/${data.playerSlug}`,
       goalAmount: data.goalAmount,
       appName: APP_NAME,
     });
