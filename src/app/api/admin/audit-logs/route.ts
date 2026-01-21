@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { auditLogs, users, players, donations } from '@/db/schema';
-import { desc, eq, and, gte, lte, sql } from 'drizzle-orm';
+import { desc, eq, and, gte, lte, count as drizzleCount } from 'drizzle-orm';
 
 /**
  * GET /api/admin/audit-logs
@@ -55,6 +55,8 @@ export async function GET(request: NextRequest) {
       conditions.push(lte(auditLogs.createdAt, new Date(endDate)));
     }
 
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     // Get logs with related data
     const logs = await db
       .select({
@@ -76,36 +78,53 @@ export async function GET(request: NextRequest) {
       .leftJoin(users, eq(auditLogs.userId, users.id))
       .leftJoin(players, eq(auditLogs.playerId, players.id))
       .leftJoin(donations, eq(auditLogs.donationId, donations.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(whereClause)
       .orderBy(desc(auditLogs.createdAt))
       .limit(limit)
       .offset(offset);
 
     // Get total count for pagination
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+    const countResult = await db
+      .select({ count: drizzleCount() })
       .from(auditLogs)
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+      .where(whereClause);
+
+    const total = countResult[0]?.count ?? 0;
 
     // Parse details JSON for each log
-    const parsedLogs = logs.map((log) => ({
-      ...log,
-      details: log.details ? JSON.parse(log.details) : null,
-    }));
+    const parsedLogs = logs.map((log) => {
+      let parsedDetails = null;
+      if (log.details) {
+        try {
+          parsedDetails = JSON.parse(log.details);
+        } catch {
+          parsedDetails = { raw: log.details };
+        }
+      }
+      return {
+        ...log,
+        details: parsedDetails,
+      };
+    });
 
     return NextResponse.json({
       logs: parsedLogs,
       pagination: {
-        total: count,
+        total,
         limit,
         offset,
-        hasMore: offset + limit < count,
+        hasMore: offset + limit < total,
       },
     });
   } catch (error) {
     console.error('Error fetching audit logs:', error);
+    // Return more detailed error in development
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to fetch audit logs' },
+      {
+        error: 'Failed to fetch audit logs',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
       { status: 500 }
     );
   }

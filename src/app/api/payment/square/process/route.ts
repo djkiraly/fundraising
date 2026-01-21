@@ -3,6 +3,7 @@ import { createSquarePayment } from '@/lib/square';
 import { db } from '@/db';
 import { squares, donations, players } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { logDonationCompleted, logDonationFailed } from '@/lib/audit';
 
 /**
  * API route to process a Square payment
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
         .where(eq(squares.id, squareId));
 
       // Create donation record
-      await db.insert(donations).values({
+      const [donation] = await db.insert(donations).values({
         playerId: square.playerId,
         squareId: square.id,
         amount: square.value,
@@ -79,6 +80,15 @@ export async function POST(request: NextRequest) {
         squareOrderId: paymentResult.orderId,
         status: 'succeeded',
         completedAt: new Date(),
+      }).returning();
+
+      // Log to audit
+      await logDonationCompleted({
+        donationId: donation.id,
+        playerId: square.playerId,
+        amount: square.value,
+        donorName: isAnonymous ? null : donorName,
+        paymentProvider: 'square',
       });
 
       // Update player's total raised
@@ -123,7 +133,14 @@ export async function POST(request: NextRequest) {
         message: 'Payment is being processed',
       });
     } else {
-      // Payment failed
+      // Payment failed - log it
+      await logDonationFailed({
+        playerId: square.playerId,
+        amount: square.value,
+        reason: `Square payment status: ${paymentResult.status}`,
+        paymentProvider: 'square',
+      });
+
       return NextResponse.json(
         {
           error: 'Payment was not completed',
