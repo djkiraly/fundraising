@@ -126,14 +126,35 @@ openssl rand -base64 32
 openssl rand -hex 32
 ```
 
-### 3.5 Run Database Migrations
+### 3.5 Port Configuration (Shared Servers)
+
+The application runs on **port 3002** by default (configured in `package.json`). This avoids conflicts with other applications on shared servers.
+
+**To change the port:**
+
+1. Edit `package.json` - update the start script:
+   ```json
+   "start": "next start -p YOUR_PORT"
+   ```
+
+2. Edit `nginx.conf` - update the upstream server:
+   ```nginx
+   upstream nextjs_app {
+       server 127.0.0.1:YOUR_PORT;
+       keepalive 64;
+   }
+   ```
+
+3. After deployment, ensure both files use the same port number.
+
+### 3.6 Run Database Migrations
 ```bash
 npm run db:generate
 npm run db:migrate
 npm run db:seed
 ```
 
-### 3.6 Build Application
+### 3.7 Build Application
 ```bash
 npm run build
 ```
@@ -171,7 +192,7 @@ server {
 
     # Temporary proxy to app (will redirect to HTTPS after cert)
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3002;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -411,8 +432,8 @@ tar -czf /var/backups/volleyball-fundraiser-app-$(date +%Y%m%d).tar.gz /var/www/
 # Check PM2 logs
 pm2 logs volleyball-fundraiser
 
-# Check if port 3000 is in use
-sudo lsof -i :3000
+# Check if port 3002 is in use (or your configured port)
+sudo lsof -i :3002
 
 # Restart application
 pm2 restart volleyball-fundraiser
