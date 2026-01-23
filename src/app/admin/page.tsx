@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { players, donations, users } from '@/db/schema';
-import { eq, desc, sql, or } from 'drizzle-orm';
+import { eq, desc, sql, or, isNull } from 'drizzle-orm';
 import { Navbar } from '@/components/ui/navbar';
 import { AdminStats } from '@/components/admin/admin-stats';
 import { PlayersList } from '@/components/admin/players-list';
@@ -12,6 +12,7 @@ import { BulkImport } from '@/components/admin/bulk-import';
 import { DonationsChart } from '@/components/admin/donations-chart';
 import { formatCurrency } from '@/lib/utils';
 import { ClipboardList, Receipt } from 'lucide-react';
+import { DeletedPlayersList } from '@/components/admin/deleted-players-list';
 
 /**
  * Admin dashboard
@@ -24,10 +25,11 @@ export default async function AdminPage() {
     redirect('/login?callbackUrl=/admin');
   }
 
-  // Fetch all players
+  // Fetch all active (non-deleted) players
   const allPlayers = await db
     .select()
     .from(players)
+    .where(isNull(players.deletedAt))
     .orderBy(desc(players.totalRaised));
 
   // Fetch all successful donations (includes 'succeeded' and 'completed' statuses)
@@ -92,6 +94,11 @@ export default async function AdminPage() {
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Players Management</h2>
             <PlayersList players={allPlayers} />
+          </div>
+
+          {/* Deleted Players */}
+          <div className="mt-8">
+            <DeletedPlayersList />
           </div>
 
           {/* Bulk Import */}

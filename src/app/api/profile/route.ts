@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { users, players } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -33,7 +33,7 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // If user is a player, fetch player data too
+    // If user is a player, fetch player data too (exclude soft-deleted players)
     let playerData = null;
     if (user.role === 'player') {
       const [player] = await db
@@ -45,7 +45,7 @@ export async function GET() {
           slug: players.slug,
         })
         .from(players)
-        .where(eq(players.userId, user.id))
+        .where(and(eq(players.userId, user.id), isNull(players.deletedAt)))
         .limit(1);
 
       playerData = player || null;
@@ -150,12 +150,12 @@ export async function PUT(request: NextRequest) {
       .set(userUpdate)
       .where(eq(users.id, session.user.id));
 
-    // If user is a player and parentEmail is provided, update player record
+    // If user is a player and parentEmail is provided, update player record (exclude soft-deleted)
     if (currentUser.role === 'player') {
       const [player] = await db
         .select()
         .from(players)
-        .where(eq(players.userId, session.user.id))
+        .where(and(eq(players.userId, session.user.id), isNull(players.deletedAt)))
         .limit(1);
 
       if (player) {

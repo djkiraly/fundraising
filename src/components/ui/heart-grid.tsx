@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Square } from '@/db/schema';
 import { cn } from '@/lib/utils';
 import { ShoppingCart, X } from 'lucide-react';
+import { trackEvent, ANALYTICS_EVENTS } from '@/lib/analytics';
 
 interface HeartGridProps {
   squares: Square[];
@@ -19,6 +20,15 @@ export function HeartGrid({ squares, onSquareClick, readonly = false, playerId }
   const router = useRouter();
 
   const handleSquareClick = (square: Square) => {
+    // Track square click
+    trackEvent({
+      eventType: ANALYTICS_EVENTS.SQUARE_CLICK,
+      path: typeof window !== 'undefined' ? window.location.pathname : '',
+      playerId: playerId || undefined,
+      squareId: square.id,
+      value: parseFloat(square.value),
+    });
+
     if (onSquareClick) {
       onSquareClick(square);
     } else if (playerId && !readonly && !square.isPurchased) {
@@ -37,6 +47,15 @@ export function HeartGrid({ squares, onSquareClick, readonly = false, playerId }
 
   const handleCheckout = () => {
     if (selectedSquares.size > 0 && playerId) {
+      // Track donation started
+      trackEvent({
+        eventType: ANALYTICS_EVENTS.DONATION_STARTED,
+        path: typeof window !== 'undefined' ? window.location.pathname : '',
+        playerId,
+        value: selectedTotal,
+        metadata: { squareCount: selectedSquares.size },
+      });
+
       const squareIds = Array.from(selectedSquares).join(',');
       router.push(`/player/${playerId}?squares=${squareIds}`, { scroll: false });
     }

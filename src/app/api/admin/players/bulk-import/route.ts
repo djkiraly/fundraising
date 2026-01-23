@@ -8,7 +8,7 @@ import { generateHeartSquares } from '@/lib/squares';
 import { generateUniqueSlug } from '@/lib/utils';
 import { sendEmail, isGmailConfigured, isGmailEnabled } from '@/lib/gmail';
 import { getPasswordSetupEmailHtml } from '@/lib/email-templates';
-import { getConfig } from '@/lib/config';
+import { getConfig, isPasswordEmailEnabled } from '@/lib/config';
 import crypto from 'crypto';
 
 const PASSWORD_SETUP_TOKEN_EXPIRY_HOURS = 72; // 3 days
@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
     if (sendPasswordSetupEmails) {
       const gmailConfigured = await isGmailConfigured();
       const gmailEnabled = await isGmailEnabled();
-      canSendEmails = gmailConfigured && gmailEnabled;
+      const passwordEmailsEnabled = await isPasswordEmailEnabled();
+      canSendEmails = gmailConfigured && gmailEnabled && passwordEmailsEnabled;
       appUrl = await getConfig('APP_URL') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
     }
 

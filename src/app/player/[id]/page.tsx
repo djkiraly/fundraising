@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { db } from '@/db';
 import { players, squares, donations } from '@/db/schema';
-import { eq, or, desc } from 'drizzle-orm';
+import { eq, or, desc, and, isNull } from 'drizzle-orm';
 import { Navbar } from '@/components/ui/navbar';
 import { HeartGrid } from '@/components/ui/heart-grid';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -11,6 +11,7 @@ import { DonationFeed } from '@/components/ui/donation-feed';
 import { Heart } from 'lucide-react';
 import { ShareButton } from '@/components/ui/share-button';
 import { formatCurrency } from '@/lib/utils';
+import { PlayerPageTracker } from '@/components/player-page-tracker';
 
 // UUID regex pattern for backwards compatibility
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,11 +26,17 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
 
   // Fetch player data - try slug first, then UUID for backwards compatibility
+  // Exclude soft-deleted players
   const isUuid = UUID_REGEX.test(id);
   const [player] = await db
     .select()
     .from(players)
-    .where(isUuid ? or(eq(players.slug, id), eq(players.id, id)) : eq(players.slug, id))
+    .where(
+      and(
+        isUuid ? or(eq(players.slug, id), eq(players.id, id)) : eq(players.slug, id),
+        isNull(players.deletedAt)
+      )
+    )
     .limit(1);
 
   if (!player) {
@@ -54,6 +61,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
+      <PlayerPageTracker playerId={player.id} path={`/player/${player.slug}`} />
       <Navbar />
       <main className="min-h-screen bg-gradient-to-b from-pink-50 to-white">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { players, squares, donations } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, isNull } from 'drizzle-orm';
 import { Navbar } from '@/components/ui/navbar';
 import { HeartGrid } from '@/components/ui/heart-grid';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -26,11 +26,11 @@ export default async function DashboardPage() {
     redirect('/admin');
   }
 
-  // Fetch player profile
+  // Fetch player profile (exclude soft-deleted players)
   const [player] = await db
     .select()
     .from(players)
-    .where(eq(players.userId, session.user.id))
+    .where(and(eq(players.userId, session.user.id), isNull(players.deletedAt)))
     .limit(1);
 
   if (!player) {

@@ -4,6 +4,7 @@ import { users, passwordResetTokens } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendEmail, isGmailConfigured, isGmailEnabled } from '@/lib/gmail';
 import { getPasswordResetEmailHtml } from '@/lib/email-templates';
+import { isPasswordEmailEnabled } from '@/lib/config';
 import crypto from 'crypto';
 
 const TOKEN_EXPIRY_HOURS = 1; // Token expires in 1 hour
@@ -62,11 +63,12 @@ export async function POST(request: NextRequest) {
       expiresAt,
     });
 
-    // Check if Gmail is configured and enabled
+    // Check if Gmail is configured and enabled, and password emails are enabled
     const gmailConfigured = await isGmailConfigured();
     const gmailEnabled = await isGmailEnabled();
+    const passwordEmailsEnabled = await isPasswordEmailEnabled();
 
-    if (gmailConfigured && gmailEnabled) {
+    if (gmailConfigured && gmailEnabled && passwordEmailsEnabled) {
       // Generate the reset URL
       const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
@@ -91,7 +93,11 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Log that email couldn't be sent (for debugging)
-      console.warn('Password reset requested but Gmail is not configured or enabled');
+      if (!passwordEmailsEnabled) {
+        console.warn('Password reset requested but password emails are disabled in settings');
+      } else {
+        console.warn('Password reset requested but Gmail is not configured or enabled');
+      }
       console.log(`Reset token for ${email}: ${token}`);
     }
 

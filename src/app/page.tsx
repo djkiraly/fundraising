@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { db } from '@/db';
 import { players } from '@/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, and, isNull } from 'drizzle-orm';
 import { Navbar } from '@/components/ui/navbar';
 import { formatCurrency } from '@/lib/utils';
 import { Heart, Trophy, Medal } from 'lucide-react';
@@ -13,12 +13,12 @@ import { PlayerSearch } from '@/components/ui/player-search';
  * Home page - displays all active players
  */
 export default async function HomePage() {
-  // Fetch all active players and branding config in parallel
+  // Fetch all active (non-deleted) players and branding config in parallel
   const [allPlayers, branding] = await Promise.all([
     db
       .select()
       .from(players)
-      .where(eq(players.isActive, true))
+      .where(and(eq(players.isActive, true), isNull(players.deletedAt)))
       .orderBy(desc(players.totalRaised)),
     getBrandingConfig(),
   ]);

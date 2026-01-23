@@ -5,7 +5,7 @@ import { users, players, passwordResetTokens } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendEmail, isGmailConfigured, isGmailEnabled } from '@/lib/gmail';
 import { getPasswordSetupEmailHtml } from '@/lib/email-templates';
-import { getConfig } from '@/lib/config';
+import { getConfig, isPasswordEmailEnabled } from '@/lib/config';
 import crypto from 'crypto';
 
 const TOKEN_EXPIRY_HOURS = 72; // Password setup token expires in 72 hours (3 days)
@@ -55,6 +55,15 @@ export async function POST(
     if (!gmailConfigured || !gmailEnabled) {
       return NextResponse.json(
         { error: 'Email is not configured. Please configure Gmail in settings.' },
+        { status: 503 }
+      );
+    }
+
+    // Check if password emails are enabled
+    const passwordEmailsEnabled = await isPasswordEmailEnabled();
+    if (!passwordEmailsEnabled) {
+      return NextResponse.json(
+        { error: 'Password setup emails are disabled. Enable them in settings to send password setup emails.' },
         { status: 503 }
       );
     }

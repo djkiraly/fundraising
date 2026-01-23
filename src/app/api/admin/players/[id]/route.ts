@@ -193,7 +193,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/admin/players/[id]
- * Delete a player (and cascade to squares, donations)
+ * Soft delete a player (sets deletedAt timestamp)
+ * Player records, donations, and squares are preserved for archival purposes
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
@@ -204,7 +205,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
-    // Check if player exists
+    // Check if player exists and is not already deleted
     const [existingPlayer] = await db
       .select()
       .from(players)
@@ -215,15 +216,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }
 
-    // Delete the player (squares and donations will cascade delete)
-    await db.delete(players).where(eq(players.id, id));
+    if (existingPlayer.deletedAt) {
+      return NextResponse.json({ error: 'Player is already deleted' }, { status: 400 });
+    }
 
-    // If player had a linked user account, optionally delete it too
-    // For now, we'll keep the user account but it won't have a player
-    // If you want to delete the user too, uncomment below:
-    // if (existingPlayer.userId) {
-    //   await db.delete(users).where(eq(users.id, existingPlayer.userId));
-    // }
+    // Soft delete: set deletedAt timestamp instead of deleting
+    await db
+      .update(players)
+      .set({
+        deletedAt: new Date(),
+        isActive: false, // Also deactivate the player
+        updatedAt: new Date(),
+      })
+      .where(eq(players.id, id));
 
     return NextResponse.json({ success: true, message: 'Player deleted successfully' });
   } catch (error) {

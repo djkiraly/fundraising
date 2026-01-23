@@ -155,6 +155,13 @@ const DEFAULT_SETTINGS: Array<{
     description: 'Enable email sending',
     defaultValue: 'false',
   },
+  {
+    key: 'PASSWORD_EMAIL_ENABLED',
+    category: 'gmail',
+    isSecret: false,
+    description: 'Enable automatic password setup/reset emails',
+    defaultValue: 'true',
+  },
   // Branding settings
   {
     key: 'SITE_TITLE',
@@ -262,6 +269,9 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
 
   // Gmail toggle state
   const [togglingGmail, setTogglingGmail] = useState(false);
+
+  // Password email toggle state
+  const [togglingPasswordEmail, setTogglingPasswordEmail] = useState(false);
 
   // reCAPTCHA toggle state
   const [togglingRecaptcha, setTogglingRecaptcha] = useState(false);
@@ -536,6 +546,40 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
       setError(err instanceof Error ? err.message : 'Failed to update Gmail setting');
     } finally {
       setTogglingGmail(false);
+    }
+  };
+
+  // Password email enabled state
+  const isPasswordEmailEnabled = fieldValues['PASSWORD_EMAIL_ENABLED'] === 'true';
+
+  const handlePasswordEmailToggle = async () => {
+    setTogglingPasswordEmail(true);
+    setError(null);
+
+    try {
+      const newPasswordEmailEnabled = !isPasswordEmailEnabled;
+
+      await fetch('/api/admin/settings', {
+        method: settingExists('PASSWORD_EMAIL_ENABLED') ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'PASSWORD_EMAIL_ENABLED',
+          value: newPasswordEmailEnabled.toString(),
+          category: 'gmail',
+          isSecret: false,
+          description: 'Enable automatic password setup/reset emails',
+        }),
+      });
+
+      setFieldValues(prev => ({
+        ...prev,
+        PASSWORD_EMAIL_ENABLED: newPasswordEmailEnabled.toString(),
+      }));
+      setSavedKeys(prev => new Set([...prev, 'PASSWORD_EMAIL_ENABLED']));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update password email setting');
+    } finally {
+      setTogglingPasswordEmail(false);
     }
   };
 
@@ -904,6 +948,54 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
             <div className="mt-2 flex items-center gap-2 text-gray-500 text-sm">
               <RefreshCw className="w-3 h-3 animate-spin" />
               Updating...
+            </div>
+          )}
+        </div>
+
+        {/* Password Email Toggle */}
+        <div className={`p-4 rounded-lg border-2 mb-4 ${
+          isPasswordEmailEnabled && isGmailEnabled ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                isPasswordEmailEnabled && isGmailEnabled ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900">Password Setup/Reset Emails</h4>
+                <p className="text-xs text-gray-500">
+                  {isPasswordEmailEnabled && isGmailEnabled
+                    ? 'Automatic emails for new players, imports, and password resets'
+                    : !isGmailEnabled
+                      ? 'Requires email sending to be enabled above'
+                      : 'Password setup and reset emails are disabled'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handlePasswordEmailToggle}
+              disabled={togglingPasswordEmail || !isGmailEnabled}
+              title={!isGmailEnabled ? 'Enable email sending first' : ''}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isPasswordEmailEnabled ? 'bg-blue-500' : 'bg-gray-300'
+              } ${togglingPasswordEmail || !isGmailEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isPasswordEmailEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+          {togglingPasswordEmail && (
+            <div className="mt-2 flex items-center gap-2 text-gray-500 text-sm">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              Updating...
+            </div>
+          )}
+          {isPasswordEmailEnabled && isGmailEnabled && (
+            <div className="mt-3 text-xs text-blue-700 bg-blue-100 rounded p-2">
+              <strong>When enabled:</strong> New players, bulk imports with email option, and password reset requests will automatically receive emails.
             </div>
           )}
         </div>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
-import { Heart, LogOut, LayoutDashboard, Home, Settings, UserCircle } from 'lucide-react';
+import { Heart, LogOut, LayoutDashboard, Home, Settings, UserCircle, BarChart3 } from 'lucide-react';
 import { useBranding } from '@/components/branding-provider';
 
 /**
@@ -48,13 +48,22 @@ export function Navbar() {
                 </Link>
 
                 {session.user.role === 'admin' && (
-                  <Link
-                    href="/admin/settings"
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Settings</span>
-                  </Link>
+                  <>
+                    <Link
+                      href="/admin/analytics"
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      <span>Analytics</span>
+                    </Link>
+                    <Link
+                      href="/admin/settings"
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
+                    </Link>
+                  </>
                 )}
 
                 <button

@@ -369,6 +369,21 @@ export async function getGmailConfig(): Promise<{
 }
 
 /**
+ * Check if password-related emails are enabled
+ * Returns true if both Gmail is enabled and password emails are enabled
+ */
+export async function isPasswordEmailEnabled(): Promise<boolean> {
+  const [gmailEnabled, passwordEmailEnabled] = await Promise.all([
+    getConfig('GMAIL_ENABLED'),
+    getConfig('PASSWORD_EMAIL_ENABLED'),
+  ]);
+
+  // Password emails require both Gmail to be enabled AND password emails to be enabled
+  // Default to true for PASSWORD_EMAIL_ENABLED if not set (backwards compatibility)
+  return gmailEnabled === 'true' && (passwordEmailEnabled === 'true' || passwordEmailEnabled === null);
+}
+
+/**
  * Get branding configuration
  * Returns all branding-related settings for customizing the app appearance
  */

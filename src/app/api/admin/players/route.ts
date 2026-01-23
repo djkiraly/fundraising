@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { players, squares, users } from '@/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, isNull } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { generateHeartSquares } from '@/lib/squares';
 import { generateUniqueSlug } from '@/lib/utils';
@@ -18,7 +18,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all players with their square stats
+    // Fetch all active (non-deleted) players with their square stats
     const allPlayers = await db
       .select({
         id: players.id,
@@ -33,6 +33,7 @@ export async function GET() {
         updatedAt: players.updatedAt,
       })
       .from(players)
+      .where(isNull(players.deletedAt))
       .orderBy(desc(players.createdAt));
 
     // Get square stats for each player

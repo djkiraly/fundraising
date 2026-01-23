@@ -32,7 +32,7 @@ export const users = pgTable('users', {
 // Players table
 export const players = pgTable('players', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   photoUrl: text('photo_url'),
@@ -40,6 +40,7 @@ export const players = pgTable('players', {
   goal: decimal('goal', { precision: 10, scale: 2 }).notNull().default('100.00'),
   totalRaised: decimal('total_raised', { precision: 10, scale: 2 }).notNull().default('0.00'),
   isActive: boolean('is_active').notNull().default(true),
+  deletedAt: timestamp('deleted_at'), // Soft delete - null means not deleted
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -236,6 +237,83 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   }),
 }));
 
+// Analytics - Page Views table
+export const pageViews = pgTable('page_views', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sessionId: varchar('session_id', { length: 64 }).notNull(), // Anonymous session tracking
+  path: varchar('path', { length: 500 }).notNull(),
+  referrer: text('referrer'),
+  playerId: uuid('player_id').references(() => players.id, { onDelete: 'set null' }), // If viewing a player page
+  // Visitor info
+  ipAddress: varchar('ip_address', { length: 45 }), // Supports IPv6
+  userAgent: text('user_agent'),
+  // Demographics (parsed from user agent and IP)
+  country: varchar('country', { length: 100 }),
+  region: varchar('region', { length: 100 }),
+  city: varchar('city', { length: 100 }),
+  deviceType: varchar('device_type', { length: 50 }), // desktop, mobile, tablet
+  browser: varchar('browser', { length: 100 }),
+  os: varchar('os', { length: 100 }),
+  // Timing
+  duration: integer('duration'), // Time on page in seconds (updated on next page view)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Analytics - Events table
+export const analyticsEventTypeEnum = pgEnum('analytics_event_type', [
+  'page_view',
+  'square_click',
+  'square_hover',
+  'donation_started',
+  'donation_completed',
+  'donation_failed',
+  'donation_cancelled',
+  'share_click',
+  'outbound_link',
+]);
+
+export const analyticsEvents = pgTable('analytics_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sessionId: varchar('session_id', { length: 64 }).notNull(),
+  eventType: analyticsEventTypeEnum('event_type').notNull(),
+  path: varchar('path', { length: 500 }).notNull(),
+  playerId: uuid('player_id').references(() => players.id, { onDelete: 'set null' }),
+  squareId: uuid('square_id').references(() => squares.id, { onDelete: 'set null' }),
+  donationId: uuid('donation_id').references(() => donations.id, { onDelete: 'set null' }),
+  // Event data
+  metadata: text('metadata'), // JSON string with additional event data
+  value: decimal('value', { precision: 10, scale: 2 }), // For donation events
+  // Visitor info
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: text('user_agent'),
+  country: varchar('country', { length: 100 }),
+  deviceType: varchar('device_type', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Analytics relations
+export const pageViewsRelations = relations(pageViews, ({ one }) => ({
+  player: one(players, {
+    fields: [pageViews.playerId],
+    references: [players.id],
+  }),
+}));
+
+export const analyticsEventsRelations = relations(analyticsEvents, ({ one }) => ({
+  player: one(players, {
+    fields: [analyticsEvents.playerId],
+    references: [players.id],
+  }),
+  square: one(squares, {
+    fields: [analyticsEvents.squareId],
+    references: [squares.id],
+  }),
+  donation: one(donations, {
+    fields: [analyticsEvents.donationId],
+    references: [donations.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -256,3 +334,8 @@ export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
 export type AuditEventType = typeof auditEventTypeEnum.enumValues[number];
+export type PageView = typeof pageViews.$inferSelect;
+export type NewPageView = typeof pageViews.$inferInsert;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+export type AnalyticsEventType = typeof analyticsEventTypeEnum.enumValues[number];
