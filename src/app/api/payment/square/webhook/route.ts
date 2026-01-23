@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySquareWebhook } from '@/lib/square';
 import { db } from '@/db';
 import { squares, donations, players } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { processPostDonationEmails } from '@/lib/email-service';
 import { logDonationCompleted, logDonationFailed } from '@/lib/audit';
 
@@ -32,6 +32,7 @@ interface SquareWebhookEvent {
 /**
  * Square webhook handler
  * Processes payment events and updates database
+ * Supports multi-square transactions (one payment, multiple squares)
  */
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Handle completed payment webhook
+ * Supports multi-square transactions
  */
 async function handlePaymentCompleted(event: SquareWebhookEvent) {
   const payment = event.data.object.payment;
@@ -93,65 +95,132 @@ async function handlePaymentCompleted(event: SquareWebhookEvent) {
   }
 
   const paymentId = payment.id;
-  const squareId = payment.reference_id; // We stored heart grid square ID here
+  const primarySquareId = payment.reference_id; // Primary heart grid square ID
 
-  if (!squareId) {
+  if (!primarySquareId) {
     console.error('No reference_id (squareId) in payment');
     return;
   }
 
   try {
-    // Check if donation already marked as succeeded
-    const [existingDonation] = await db
+    // Get ALL donations with this payment ID (multi-square support)
+    const existingDonations = await db
       .select()
       .from(donations)
-      .where(eq(donations.squarePaymentId, paymentId))
-      .limit(1);
+      .where(eq(donations.squarePaymentId, paymentId));
 
-    if (existingDonation && existingDonation.status === 'succeeded') {
+    // Check if already processed
+    const alreadySucceeded = existingDonations.some(d => d.status === 'succeeded');
+    if (alreadySucceeded) {
       console.log(`Payment ${paymentId} already processed`);
       return;
     }
 
-    // Get the square (heart grid square)
-    const [square] = await db
-      .select()
-      .from(squares)
-      .where(eq(squares.id, squareId))
-      .limit(1);
+    const now = new Date();
 
-    if (!square) {
-      console.error(`Square ${squareId} not found`);
-      return;
-    }
-
-    // Update the square if not already purchased
-    if (!square.isPurchased) {
-      await db
-        .update(squares)
-        .set({
-          isPurchased: true,
-          purchasedAt: new Date(),
-        })
-        .where(eq(squares.id, squareId));
-    }
-
-    // Update or create donation record
-    let donationId: string;
-    const donationAmount = payment.amount_money?.amount
-      ? (Number(payment.amount_money.amount) / 100).toFixed(2)
-      : square.value;
-
-    if (existingDonation) {
+    if (existingDonations.length > 0) {
+      // Update all existing donation records to succeeded
+      const donationIds = existingDonations.map(d => d.id);
       await db
         .update(donations)
         .set({
           status: 'succeeded',
-          completedAt: new Date(),
+          completedAt: now,
         })
-        .where(eq(donations.id, existingDonation.id));
-      donationId = existingDonation.id;
+        .where(inArray(donations.id, donationIds));
+
+      // Get all square IDs from donations and mark them purchased
+      const squareIds = existingDonations.map(d => d.squareId).filter((id): id is string => id !== null);
+      if (squareIds.length > 0) {
+        await db
+          .update(squares)
+          .set({
+            isPurchased: true,
+            purchasedAt: now,
+          })
+          .where(inArray(squares.id, squareIds));
+      }
+
+      // Calculate total amount and get player ID
+      const totalAmount = existingDonations.reduce(
+        (sum, d) => sum + parseFloat(d.amount),
+        0
+      );
+      const playerId = existingDonations[0].playerId;
+
+      // Log audit for each donation
+      await Promise.all(
+        existingDonations.map(donation =>
+          logDonationCompleted({
+            donationId: donation.id,
+            playerId: donation.playerId,
+            amount: donation.amount,
+            donorName: donation.donorName || null,
+            paymentProvider: 'square',
+          })
+        )
+      );
+
+      // Update player's total raised
+      const [player] = await db
+        .select()
+        .from(players)
+        .where(eq(players.id, playerId))
+        .limit(1);
+
+      if (player) {
+        const previousTotal = parseFloat(player.totalRaised);
+        const newTotal = previousTotal + totalAmount;
+        await db
+          .update(players)
+          .set({ totalRaised: newTotal.toFixed(2) })
+          .where(eq(players.id, playerId));
+
+        // Send email notifications for first donation (non-blocking)
+        const firstDonation = existingDonations[0];
+        processPostDonationEmails({
+          playerId,
+          squareId: firstDonation.squareId || primarySquareId,
+          amount: totalAmount,
+          donorEmail: firstDonation.donorEmail || null,
+          donorName: firstDonation.donorName || null,
+          transactionId: paymentId,
+          previousTotal,
+        }).catch((err) => {
+          console.error('Error sending post-donation emails:', err);
+        });
+      }
+
+      console.log(`Square payment ${paymentId} completed for ${existingDonations.length} square(s)`);
     } else {
+      // No existing donations - create one for the primary square (fallback)
+      const [square] = await db
+        .select()
+        .from(squares)
+        .where(eq(squares.id, primarySquareId))
+        .limit(1);
+
+      if (!square) {
+        console.error(`Square ${primarySquareId} not found`);
+        return;
+      }
+
+      // Update the square
+      if (!square.isPurchased) {
+        await db
+          .update(squares)
+          .set({
+            isPurchased: true,
+            purchasedAt: now,
+          })
+          .where(eq(squares.id, primarySquareId));
+      }
+
+      // Create donation record
+      const donationAmount = payment.amount_money?.amount
+        ? (Number(payment.amount_money.amount) / 100).toFixed(2)
+        : square.value;
+
       const [newDonation] = await db.insert(donations).values({
         playerId: square.playerId,
         squareId: square.id,
@@ -160,27 +229,20 @@ async function handlePaymentCompleted(event: SquareWebhookEvent) {
         squarePaymentId: paymentId,
         squareOrderId: payment.order_id,
         status: 'succeeded',
-        completedAt: new Date(),
+        completedAt: now,
       }).returning();
-      donationId = newDonation.id;
-    }
 
-    // Log to audit log
-    await logDonationCompleted({
-      donationId,
-      playerId: square.playerId,
-      amount: donationAmount,
-      donorName: existingDonation?.donorName || null,
-      paymentProvider: 'square',
-    });
+      // Log to audit
+      await logDonationCompleted({
+        donationId: newDonation.id,
+        playerId: square.playerId,
+        amount: donationAmount,
+        donorName: null,
+        paymentProvider: 'square',
+      });
 
-    // Update player's total raised (only if donation wasn't already succeeded)
-    let previousTotal = 0;
-    const amount = payment.amount_money?.amount
-      ? Number(payment.amount_money.amount) / 100
-      : parseFloat(square.value);
-
-    if (!existingDonation || existingDonation.status !== 'succeeded') {
+      // Update player's total raised
+      const amount = parseFloat(donationAmount);
       const [player] = await db
         .select()
         .from(players)
@@ -188,29 +250,29 @@ async function handlePaymentCompleted(event: SquareWebhookEvent) {
         .limit(1);
 
       if (player) {
-        previousTotal = parseFloat(player.totalRaised);
+        const previousTotal = parseFloat(player.totalRaised);
         const newTotal = previousTotal + amount;
         await db
           .update(players)
           .set({ totalRaised: newTotal.toFixed(2) })
           .where(eq(players.id, square.playerId));
+
+        // Send email notifications (non-blocking)
+        processPostDonationEmails({
+          playerId: square.playerId,
+          squareId: square.id,
+          amount,
+          donorEmail: null,
+          donorName: null,
+          transactionId: paymentId,
+          previousTotal,
+        }).catch((err) => {
+          console.error('Error sending post-donation emails:', err);
+        });
       }
 
-      // Send email notifications (non-blocking)
-      processPostDonationEmails({
-        playerId: square.playerId,
-        squareId: square.id,
-        amount,
-        donorEmail: existingDonation?.donorEmail || null,
-        donorName: existingDonation?.donorName || null,
-        transactionId: paymentId,
-        previousTotal,
-      }).catch((err) => {
-        console.error('Error sending post-donation emails:', err);
-      });
+      console.log(`Square payment ${paymentId} completed for square ${primarySquareId}`);
     }
-
-    console.log(`Square payment ${paymentId} completed for square ${squareId}`);
   } catch (error) {
     console.error('Error handling Square payment completion:', error);
     throw error;
@@ -232,6 +294,7 @@ async function handlePaymentUpdated(event: SquareWebhookEvent) {
 
 /**
  * Handle failed payment webhook
+ * Supports multi-square transactions
  */
 async function handlePaymentFailed(event: SquareWebhookEvent) {
   const payment = event.data.object.payment;
@@ -241,36 +304,46 @@ async function handlePaymentFailed(event: SquareWebhookEvent) {
   }
 
   const paymentId = payment.id;
-  const squareId = payment.reference_id;
+  const primarySquareId = payment.reference_id;
 
-  if (!squareId) return;
+  if (!primarySquareId) return;
 
   try {
-    // Update donation record if exists
-    const [existingDonation] = await db
+    // Get ALL donations with this payment ID
+    const existingDonations = await db
       .select()
       .from(donations)
-      .where(eq(donations.squarePaymentId, paymentId))
-      .limit(1);
+      .where(eq(donations.squarePaymentId, paymentId));
 
-    let donationId: string | undefined;
-    let playerId: string | undefined;
-    let failedAmount: string | undefined;
-
-    if (existingDonation) {
+    if (existingDonations.length > 0) {
+      // Update all donations to failed
+      const donationIds = existingDonations.map(d => d.id);
       await db
         .update(donations)
         .set({ status: 'failed' })
-        .where(eq(donations.id, existingDonation.id));
-      donationId = existingDonation.id;
-      playerId = existingDonation.playerId;
-      failedAmount = existingDonation.amount;
+        .where(inArray(donations.id, donationIds));
+
+      // Log audit for each
+      const totalAmount = existingDonations.reduce(
+        (sum, d) => sum + parseFloat(d.amount),
+        0
+      );
+
+      await logDonationFailed({
+        donationId: existingDonations[0].id,
+        playerId: existingDonations[0].playerId,
+        amount: totalAmount.toFixed(2),
+        reason: 'Square payment failed',
+        paymentProvider: 'square',
+      });
+
+      console.log(`Square payment ${paymentId} failed for ${existingDonations.length} donation(s)`);
     } else {
-      // Get square to get playerId
+      // No existing donations - create failed record for primary square
       const [square] = await db
         .select()
         .from(squares)
-        .where(eq(squares.id, squareId))
+        .where(eq(squares.id, primarySquareId))
         .limit(1);
 
       if (square) {
@@ -288,24 +361,17 @@ async function handlePaymentFailed(event: SquareWebhookEvent) {
           status: 'failed',
         }).returning();
 
-        donationId = newDonation.id;
-        playerId = square.playerId;
-        failedAmount = amount;
+        await logDonationFailed({
+          donationId: newDonation.id,
+          playerId: square.playerId,
+          amount,
+          reason: 'Square payment failed',
+          paymentProvider: 'square',
+        });
       }
-    }
 
-    // Log to audit log
-    if (playerId) {
-      await logDonationFailed({
-        donationId,
-        playerId,
-        amount: failedAmount,
-        reason: 'Square payment failed',
-        paymentProvider: 'square',
-      });
+      console.log(`Square payment ${paymentId} failed`);
     }
-
-    console.log(`Square payment ${paymentId} failed`);
   } catch (error) {
     console.error('Error handling Square payment failure:', error);
   }

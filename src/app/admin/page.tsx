@@ -11,7 +11,7 @@ import { UsersList } from '@/components/admin/users-list';
 import { BulkImport } from '@/components/admin/bulk-import';
 import { DonationsChart } from '@/components/admin/donations-chart';
 import { formatCurrency } from '@/lib/utils';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Receipt } from 'lucide-react';
 
 /**
  * Admin dashboard
@@ -106,28 +106,54 @@ export default async function AdminPage() {
             <UsersList users={adminUsers} currentUserId={session.user.id} />
           </div>
 
-          {/* Audit Logs Link */}
+          {/* Financial & Monitoring */}
           <div className="mt-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Activity Monitoring</h2>
-            <div className="card">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-primary-pink-light rounded-lg flex items-center justify-center">
-                    <ClipboardList className="w-6 h-6 text-primary-pink" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Financial & Monitoring</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Transaction Audit */}
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Receipt className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Transaction Audit</h3>
+                      <p className="text-sm text-gray-600">
+                        View all payments, amounts, and player associations
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Audit Logs</h3>
-                    <p className="text-sm text-gray-600">
-                      View user logins, donations, and administrative actions
-                    </p>
-                  </div>
+                  <Link
+                    href="/admin/transactions"
+                    className="btn-primary"
+                  >
+                    View
+                  </Link>
                 </div>
-                <Link
-                  href="/admin/audit-logs"
-                  className="btn-primary"
-                >
-                  View Logs
-                </Link>
+              </div>
+
+              {/* Audit Logs */}
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-primary-pink-light rounded-lg flex items-center justify-center">
+                      <ClipboardList className="w-6 h-6 text-primary-pink" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Audit Logs</h3>
+                      <p className="text-sm text-gray-600">
+                        View user logins and administrative actions
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/admin/audit-logs"
+                    className="btn-primary"
+                  >
+                    View
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

@@ -71,7 +71,7 @@ export const donations = pgTable('donations', {
   stripeCustomerId: text('stripe_customer_id'),
   // Square payment fields
   paymentProvider: varchar('payment_provider', { length: 50 }).default('stripe'), // 'stripe' | 'square' | 'manual'
-  squarePaymentId: text('square_payment_id').unique(),
+  squarePaymentId: text('square_payment_id'), // Not unique - allows multi-square transactions
   squareOrderId: text('square_order_id'),
   // Manual donation fields
   manualPaymentMethod: varchar('manual_payment_method', { length: 50 }), // 'cash' | 'check' | 'other'

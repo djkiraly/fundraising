@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Eye, EyeOff, RefreshCw, CheckCircle, XCircle, Mail, ExternalLink, CreditCard, Zap, Palette, Send } from 'lucide-react';
+import { Save, Eye, EyeOff, RefreshCw, CheckCircle, XCircle, Mail, ExternalLink, CreditCard, Zap, Palette, Send, MessageSquare } from 'lucide-react';
+import { RichTextEditor } from './rich-text-editor';
 
 interface Setting {
   id: string;
@@ -201,6 +202,14 @@ const DEFAULT_SETTINGS: Array<{
     isSecret: false,
     description: 'URL to your logo image (optional)',
     placeholder: 'https://example.com/logo.png',
+  },
+  {
+    key: 'WELCOME_MESSAGE',
+    category: 'branding',
+    isSecret: false,
+    description: 'Welcome message displayed above player cards (supports rich text)',
+    placeholder: 'Welcome to our fundraiser! Support our players by purchasing squares.',
+    defaultValue: '',
   },
 ];
 
@@ -955,6 +964,59 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
             <div>{renderField('PRIMARY_COLOR_DARK')}</div>
           </div>
           {renderField('LOGO_URL')}
+        </div>
+      </div>
+
+      {/* ==================== WELCOME MESSAGE SECTION ==================== */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <MessageSquare className="w-5 h-5 text-blue-600" />
+          <h3 className="text-xl font-bold text-gray-900">Welcome Message</h3>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          This message appears above the player cards on the home page. Use the formatting tools to style your text.
+        </p>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-700">
+              Welcome Message Content
+            </label>
+            {settingExists('WELCOME_MESSAGE') && (
+              <span className="text-xs text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Saved
+              </span>
+            )}
+          </div>
+
+          <RichTextEditor
+            value={fieldValues['WELCOME_MESSAGE'] || ''}
+            onChange={(value) => setFieldValues(prev => ({ ...prev, WELCOME_MESSAGE: value }))}
+            placeholder="Welcome to our fundraiser! Support our players by purchasing squares on their heart-shaped grids."
+          />
+
+          <div className="flex justify-end">
+            <button
+              onClick={() => handleSave('WELCOME_MESSAGE')}
+              disabled={saving['WELCOME_MESSAGE']}
+              className="px-4 py-2 bg-primary-pink text-white rounded-lg hover:bg-primary-pink-dark disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving['WELCOME_MESSAGE'] ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save Welcome Message
+            </button>
+          </div>
+
+          {/* Preview */}
+          {fieldValues['WELCOME_MESSAGE'] && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Preview:</h4>
+              <div
+                className="prose prose-sm max-w-none text-gray-700 [&>*]:my-2"
+                dangerouslySetInnerHTML={{ __html: fieldValues['WELCOME_MESSAGE'] }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

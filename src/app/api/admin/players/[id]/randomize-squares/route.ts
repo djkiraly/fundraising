@@ -3,28 +3,37 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { players, squares } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getSquareRandomizationConfig } from '@/lib/config';
 
-// Fixed dollar values for squares
-const SQUARE_VALUES = [5, 10, 20];
+// Valid US dollar bill denominations
+const DOLLAR_DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100];
 
 /**
- * Generate random square values with even distribution of $5, $10, $20
+ * Generate random square values using config min/max values
+ * Only generates valid US dollar bill denominations ($1, $2, $5, $10, $20, $50, $100)
  */
-function generateSquareValues(count: number): number[] {
+function generateSquareValues(count: number, minValue: number, maxValue: number): number[] {
   if (count === 0) return [];
+
+  // Filter denominations to only those within the min/max range
+  const validDenominations = DOLLAR_DENOMINATIONS.filter(
+    d => d >= minValue && d <= maxValue
+  );
+
+  // Fallback to closest valid denomination if none in range
+  if (validDenominations.length === 0) {
+    const closest = DOLLAR_DENOMINATIONS.reduce((prev, curr) =>
+      Math.abs(curr - minValue) < Math.abs(prev - minValue) ? curr : prev
+    );
+    validDenominations.push(closest);
+  }
 
   const values: number[] = [];
 
-  // Distribute evenly across the three values
-  const perValue = Math.floor(count / 3);
-  const remainder = count % 3;
-
-  // Add base distribution
-  for (let i = 0; i < 3; i++) {
-    const extraOne = i < remainder ? 1 : 0;
-    for (let j = 0; j < perValue + extraOne; j++) {
-      values.push(SQUARE_VALUES[i]);
-    }
+  // Generate random values from valid denominations
+  for (let i = 0; i < count; i++) {
+    const randomIndex = Math.floor(Math.random() * validDenominations.length);
+    values.push(validDenominations[randomIndex]);
   }
 
   // Shuffle the values using Fisher-Yates algorithm
@@ -83,32 +92,36 @@ export async function POST(
       });
     }
 
-    // Generate new random values ($5, $10, $20 with even distribution)
-    const newValues = generateSquareValues(unpurchasedSquares.length);
+    // Get square configuration from admin settings
+    const config = await getSquareRandomizationConfig();
+    const { minValue, maxValue } = config;
 
-    // Update each square with its new value
+    // Generate new random values using config
+    const newValues = generateSquareValues(unpurchasedSquares.length, minValue, maxValue);
+
+    // Update each square with its new value (whole dollar amounts)
     for (let i = 0; i < unpurchasedSquares.length; i++) {
       await db
         .update(squares)
-        .set({ value: newValues[i].toFixed(2) })
+        .set({ value: String(newValues[i]) })
         .where(eq(squares.id, unpurchasedSquares[i].id));
     }
 
     // Calculate actual total
     const actualTotal = newValues.reduce((sum, v) => sum + v, 0);
 
-    // Count distribution
-    const distribution = {
-      $5: newValues.filter(v => v === 5).length,
-      $10: newValues.filter(v => v === 10).length,
-      $20: newValues.filter(v => v === 20).length,
-    };
+    // Count distribution by value
+    const valueCounts = newValues.reduce((acc, v) => {
+      acc[v] = (acc[v] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
 
     return NextResponse.json({
       success: true,
       message: `Randomized ${unpurchasedSquares.length} squares`,
       squaresUpdated: unpurchasedSquares.length,
-      distribution,
+      config: { minValue, maxValue },
+      distribution: valueCounts,
       actualTotal: actualTotal.toFixed(2),
     });
   } catch (error) {

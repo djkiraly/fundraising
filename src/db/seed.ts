@@ -10,7 +10,7 @@ async function main() {
   const bcrypt = bcryptModule.default;
   const { encrypt } = await import('../lib/encryption');
   const { generateSlug } = await import('../lib/utils');
-  const { STANDARD_HEART_COORDINATES, generateHeartGridSquares } = await import('../lib/squares');
+  const { STANDARD_HEART_COORDINATES, generateHeartGridSquaresSync } = await import('../lib/squares');
 
   console.log('🌱 Seeding database...');
 
@@ -68,14 +68,14 @@ async function main() {
 
       console.log('✅ Created player:', playerName);
 
-      // Use standardized heart grid with 97 squares
-      const heartSquares = generateHeartGridSquares(100); // Target $100 goal
+      // Use standardized heart grid with 97 squares (denominations $1-$10: $1, $2, $5, $10)
+      const heartSquares = generateHeartGridSquaresSync(1, 10);
 
       const squareData = heartSquares.map((square) => ({
         playerId: player.id,
         positionX: square.x,
         positionY: square.y,
-        value: square.value.toFixed(2),
+        value: String(square.value), // Whole dollar amounts
         isPurchased: false,
       }));
 

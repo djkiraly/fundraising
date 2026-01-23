@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -79,6 +79,8 @@ export function DonationModal({ playerId }: { playerId: string }) {
   const [loading, setLoading] = useState(false);
   const [stripe, setStripe] = useState<Stripe | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const paymentCompletedRef = useRef(false);
 
   // Payment provider state
   const [paymentProvider, setPaymentProvider] = useState<'stripe' | 'square' | 'simulation' | null>(null);
@@ -112,7 +114,7 @@ export function DonationModal({ playerId }: { playerId: string }) {
 
   useEffect(() => {
     const fetchData = async (ids: string[]) => {
-      if (ids.length === 0) return;
+      if (ids.length === 0 || paymentCompletedRef.current) return;
 
       setLoading(true);
       try {
@@ -165,7 +167,7 @@ export function DonationModal({ playerId }: { playerId: string }) {
       }
     };
 
-    if (squareIds.length > 0) {
+    if (squareIds.length > 0 && !paymentCompletedRef.current) {
       fetchData(squareIds);
     }
   }, [squareIds.join(','), playerId, router, paymentConfig?.stripePublishableKey]);
@@ -175,8 +177,11 @@ export function DonationModal({ playerId }: { playerId: string }) {
   };
 
   const handleSuccess = () => {
-    closeModal();
-    window.location.reload();
+    // Set ref immediately (synchronous) to prevent any re-fetching
+    paymentCompletedRef.current = true;
+    setPaymentCompleted(true);
+    // Navigate away and reload
+    window.location.href = `/player/${playerId}?success=true`;
   };
 
   if (squareIds.length === 0) return null;

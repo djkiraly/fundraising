@@ -46,15 +46,14 @@ async function main() {
       // Delete existing squares for this player
       await db.delete(squares).where(eq(squares.playerId, player.id));
 
-      // Generate new standardized squares
-      const targetGoal = parseFloat(player.goal) || 100;
-      const heartSquares = generateHeartGridSquares(targetGoal);
+      // Generate new standardized squares using admin config
+      const heartSquares = await generateHeartGridSquares();
 
       const squareData = heartSquares.map((square) => ({
         playerId: player.id,
         positionX: square.x,
         positionY: square.y,
-        value: square.value.toFixed(2),
+        value: String(square.value), // Whole dollar amounts
         isPurchased: false,
       }));
 

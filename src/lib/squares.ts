@@ -1,5 +1,6 @@
 import { db } from '@/db';
 import { squares } from '@/db/schema';
+import { getSquareRandomizationConfig } from '@/lib/config';
 
 /**
  * Standard heart grid configuration
@@ -18,16 +19,20 @@ export const STANDARD_HEART_COORDINATES: ReadonlyArray<{ x: number; y: number }>
 
 /**
  * Generate heart-shaped grid squares for a player and insert them into the database
+ * Uses admin config for min/max values
  */
 export async function generateHeartSquares(playerId: string): Promise<void> {
   const heartCoords = STANDARD_HEART_COORDINATES;
-  const values = generateSquareValues(heartCoords.length);
+
+  // Get config values from admin settings
+  const config = await getSquareRandomizationConfig();
+  const values = generateSquareValuesFromConfig(heartCoords.length, config.minValue, config.maxValue);
 
   const squareData = heartCoords.map((coord, index) => ({
     playerId,
     positionX: coord.x,
     positionY: coord.y,
-    value: String(values[index]),
+    value: String(Math.round(values[index])), // Whole dollar amounts only
     isPurchased: false,
   }));
 
@@ -36,15 +41,19 @@ export async function generateHeartSquares(playerId: string): Promise<void> {
 
 /**
  * Generate heart grid squares data without inserting (for bulk operations)
+ * Uses admin config for min/max values
  * Returns array of square data ready for insertion
  */
-export function generateHeartGridSquares(targetGoal: number = 100): Array<{
+export async function generateHeartGridSquares(targetGoal: number = 100): Promise<Array<{
   x: number;
   y: number;
   value: number;
-}> {
+}>> {
   const heartCoords = STANDARD_HEART_COORDINATES;
-  const values = generateSquareValuesForGoal(heartCoords.length, targetGoal);
+
+  // Get config values from admin settings
+  const config = await getSquareRandomizationConfig();
+  const values = generateSquareValuesFromConfig(heartCoords.length, config.minValue, config.maxValue);
 
   return heartCoords.map((coord, index) => ({
     x: coord.x,
@@ -54,21 +63,54 @@ export function generateHeartGridSquares(targetGoal: number = 100): Array<{
 }
 
 /**
- * Generate square values with even distribution of predefined values
+ * Generate heart grid squares data with explicit min/max values (sync version for seeding)
+ * Only uses valid US dollar bill denominations within the min/max range
+ * Returns array of square data ready for insertion
  */
-function generateSquareValues(count: number): number[] {
-  const SQUARE_VALUES = [5, 10, 20];
+export function generateHeartGridSquaresSync(minValue: number = 1, maxValue: number = 10): Array<{
+  x: number;
+  y: number;
+  value: number;
+}> {
+  const heartCoords = STANDARD_HEART_COORDINATES;
+  const values = generateSquareValuesFromConfig(heartCoords.length, minValue, maxValue);
+
+  return heartCoords.map((coord, index) => ({
+    x: coord.x,
+    y: coord.y,
+    value: values[index],
+  }));
+}
+
+// Valid US dollar bill denominations
+const DOLLAR_DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100];
+
+/**
+ * Generate square values using config min/max values
+ * Only generates valid US dollar bill denominations ($1, $2, $5, $10, $20, $50, $100)
+ */
+function generateSquareValuesFromConfig(count: number, minValue: number, maxValue: number): number[] {
   if (count === 0) return [];
 
-  const values: number[] = [];
-  const perValue = Math.floor(count / 3);
-  const remainder = count % 3;
+  // Filter denominations to only those within the min/max range
+  const validDenominations = DOLLAR_DENOMINATIONS.filter(
+    d => d >= minValue && d <= maxValue
+  );
 
-  for (let i = 0; i < 3; i++) {
-    const extraOne = i < remainder ? 1 : 0;
-    for (let j = 0; j < perValue + extraOne; j++) {
-      values.push(SQUARE_VALUES[i]);
-    }
+  // Fallback to closest valid denominations if none in range
+  if (validDenominations.length === 0) {
+    const closest = DOLLAR_DENOMINATIONS.reduce((prev, curr) =>
+      Math.abs(curr - minValue) < Math.abs(prev - minValue) ? curr : prev
+    );
+    validDenominations.push(closest);
+  }
+
+  const values: number[] = [];
+
+  // Generate random values from valid denominations
+  for (let i = 0; i < count; i++) {
+    const randomIndex = Math.floor(Math.random() * validDenominations.length);
+    values.push(validDenominations[randomIndex]);
   }
 
   // Fisher-Yates shuffle
@@ -78,6 +120,15 @@ function generateSquareValues(count: number): number[] {
   }
 
   return values;
+}
+
+/**
+ * Generate square values with even distribution of predefined values
+ * @deprecated Use generateSquareValuesFromConfig with admin settings instead
+ */
+function generateSquareValues(count: number): number[] {
+  // Default fallback values if config is not available
+  return generateSquareValuesFromConfig(count, 1, 10);
 }
 
 /**

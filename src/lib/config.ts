@@ -379,6 +379,7 @@ export async function getBrandingConfig(): Promise<{
   primaryColorLight: string;
   primaryColorDark: string;
   logoUrl: string | null;
+  welcomeMessage: string | null;
 }> {
   const [
     siteTitle,
@@ -387,6 +388,7 @@ export async function getBrandingConfig(): Promise<{
     primaryColorLight,
     primaryColorDark,
     logoUrl,
+    welcomeMessage,
   ] = await Promise.all([
     getConfig('SITE_TITLE'),
     getConfig('SITE_DESCRIPTION'),
@@ -394,6 +396,7 @@ export async function getBrandingConfig(): Promise<{
     getConfig('PRIMARY_COLOR_LIGHT'),
     getConfig('PRIMARY_COLOR_DARK'),
     getConfig('LOGO_URL'),
+    getConfig('WELCOME_MESSAGE'),
   ]);
 
   return {
@@ -403,5 +406,6 @@ export async function getBrandingConfig(): Promise<{
     primaryColorLight: primaryColorLight || '#FFB6D9',
     primaryColorDark: primaryColorDark || '#FF1493',
     logoUrl: logoUrl || null,
+    welcomeMessage: welcomeMessage || null,
   };
 }
