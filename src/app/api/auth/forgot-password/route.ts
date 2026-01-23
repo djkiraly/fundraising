@@ -4,7 +4,7 @@ import { users, passwordResetTokens } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendEmail, isGmailConfigured, isGmailEnabled } from '@/lib/gmail';
 import { getPasswordResetEmailHtml } from '@/lib/email-templates';
-import { isPasswordEmailEnabled } from '@/lib/config';
+import { getConfig, isPasswordEmailEnabled } from '@/lib/config';
 import crypto from 'crypto';
 
 const TOKEN_EXPIRY_HOURS = 1; // Token expires in 1 hour
@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
     const passwordEmailsEnabled = await isPasswordEmailEnabled();
 
     if (gmailConfigured && gmailEnabled && passwordEmailsEnabled) {
-      // Generate the reset URL
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      // Generate the reset URL (prefer APP_URL from settings, then NEXTAUTH_URL env var)
+      const baseUrl = await getConfig('APP_URL') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
       // Generate email HTML

@@ -133,6 +133,14 @@ const DEFAULT_SETTINGS: Array<{
     placeholder: '100',
     defaultValue: '100',
   },
+  // App settings
+  {
+    key: 'APP_URL',
+    category: 'app',
+    isSecret: false,
+    description: 'Application URL (used in emails)',
+    placeholder: 'https://your-domain.com',
+  },
   // Gmail settings
   {
     key: 'GMAIL_CLIENT_ID',
@@ -872,6 +880,27 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
               {renderField('SQUARE_ENVIRONMENT')}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ==================== APP SETTINGS SECTION ==================== */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <ExternalLink className="w-5 h-5 text-blue-600" />
+          <h3 className="text-xl font-bold text-gray-900">Application Settings</h3>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Configure your application URL. This is used in password reset emails and other notifications.
+        </p>
+
+        <div className="space-y-4">
+          {renderField('APP_URL')}
+        </div>
+
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-700">
+            <strong>Important:</strong> Set this to your production URL (e.g., https://fundraiser.yourdomain.com) to ensure email links work correctly.
+          </p>
         </div>
       </div>
 
