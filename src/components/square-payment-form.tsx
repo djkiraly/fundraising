@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { User, UserX } from 'lucide-react';
+import { useRecaptcha } from '@/hooks/useRecaptcha';
 
 // Square Web Payments SDK types
 interface SquarePayments {
@@ -87,6 +88,9 @@ export function SquarePaymentForm({
   const cardRef = useRef<SquareCard | null>(null);
   const paymentsRef = useRef<SquarePayments | null>(null);
 
+  // reCAPTCHA integration
+  const { ready: recaptchaReady, executeRecaptcha } = useRecaptcha();
+
   // Load Square Web Payments SDK
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -165,6 +169,9 @@ export function SquarePaymentForm({
     setError('');
 
     try {
+      // Execute reCAPTCHA if available
+      const recaptchaToken = await executeRecaptcha('payment');
+
       // Tokenize the card
       const tokenResult = await cardRef.current.tokenize();
 
@@ -186,6 +193,7 @@ export function SquarePaymentForm({
           donorEmail: donorEmail || null,
           isAnonymous,
           amount,
+          recaptchaToken: recaptchaToken || '',
         }),
       });
 
@@ -313,10 +321,10 @@ export function SquarePaymentForm({
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={!cardReady || processing}
-        className={`w-full btn-primary ${!cardReady || processing ? 'btn-disabled' : ''}`}
+        disabled={!cardReady || !recaptchaReady || processing}
+        className={`w-full btn-primary ${!cardReady || !recaptchaReady || processing ? 'btn-disabled' : ''}`}
       >
-        {processing ? 'Processing...' : `Donate $${Math.round(parseFloat(amount))}`}
+        {processing ? 'Processing...' : !cardReady || !recaptchaReady ? 'Loading...' : `Donate $${Math.round(parseFloat(amount))}`}
       </button>
 
       {/* Square branding */}

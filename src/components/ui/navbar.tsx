@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
-import { Heart, LogOut, LayoutDashboard, Home, Settings } from 'lucide-react';
+import { Heart, LogOut, LayoutDashboard, Home, Settings, UserCircle } from 'lucide-react';
 import { useBranding } from '@/components/branding-provider';
 
 /**
@@ -68,12 +68,17 @@ export function Navbar() {
                   <span>Logout</span>
                 </button>
 
-                <div className="ml-4 pl-4 border-l border-gray-300">
+                <Link
+                  href="/profile"
+                  className="ml-4 pl-4 border-l border-gray-300 flex items-center gap-3 hover:bg-gray-50 rounded-lg py-1 px-2 -mr-2 transition-colors"
+                  title="Edit Profile"
+                >
+                  <UserCircle className="w-8 h-8 text-gray-400" />
                   <div className="text-sm">
                     <div className="font-medium text-gray-900">{session.user.name}</div>
                     <div className="text-gray-500 capitalize">{session.user.role}</div>
                   </div>
-                </div>
+                </Link>
               </>
             ) : (
               <Link

@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { squares, donations, players } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { logDonationCompleted, logDonationFailed } from '@/lib/audit';
+import { verifyRecaptchaWithThreshold } from '@/lib/recaptcha';
 
 /**
  * API route to process a Square payment
@@ -13,7 +14,18 @@ import { logDonationCompleted, logDonationFailed } from '@/lib/audit';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { squareId, squareIds, sourceId, donorName, donorEmail, isAnonymous } = body;
+    const { squareId, squareIds, sourceId, donorName, donorEmail, isAnonymous, recaptchaToken } = body;
+
+    // Verify reCAPTCHA token if provided
+    if (recaptchaToken) {
+      const recaptchaResult = await verifyRecaptchaWithThreshold(recaptchaToken, 'payment');
+      if (!recaptchaResult.success) {
+        return NextResponse.json(
+          { error: recaptchaResult.error || 'Security verification failed' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Support both squareId (single) and squareIds (array) for backwards compatibility
     const resolvedSquareIds: string[] = squareIds || (squareId ? [squareId] : []);

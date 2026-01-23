@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Eye, EyeOff, RefreshCw, CheckCircle, XCircle, Mail, ExternalLink, CreditCard, Zap, Palette, Send, MessageSquare } from 'lucide-react';
+import { Save, Eye, EyeOff, RefreshCw, CheckCircle, XCircle, Mail, ExternalLink, CreditCard, Zap, Palette, Send, MessageSquare, Shield } from 'lucide-react';
 import { RichTextEditor } from './rich-text-editor';
 
 interface Setting {
@@ -211,6 +211,28 @@ const DEFAULT_SETTINGS: Array<{
     placeholder: 'Welcome to our fundraiser! Support our players by purchasing squares.',
     defaultValue: '',
   },
+  // reCAPTCHA settings
+  {
+    key: 'RECAPTCHA_ENABLED',
+    category: 'security',
+    isSecret: false,
+    description: 'Enable reCAPTCHA protection',
+    defaultValue: 'false',
+  },
+  {
+    key: 'RECAPTCHA_SITE_KEY',
+    category: 'security',
+    isSecret: false,
+    description: 'Google reCAPTCHA v3 Site Key',
+    placeholder: '6L...',
+  },
+  {
+    key: 'RECAPTCHA_SECRET_KEY',
+    category: 'security',
+    isSecret: true,
+    description: 'Google reCAPTCHA v3 Secret Key',
+    placeholder: '6L...',
+  },
 ];
 
 export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTestGmail, onAuthorizeGmail, onSendTestEmail }: SettingsFormProps) {
@@ -240,6 +262,9 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
 
   // Gmail toggle state
   const [togglingGmail, setTogglingGmail] = useState(false);
+
+  // reCAPTCHA toggle state
+  const [togglingRecaptcha, setTogglingRecaptcha] = useState(false);
 
   // Initialize field values from existing settings
   useEffect(() => {
@@ -511,6 +536,40 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
       setError(err instanceof Error ? err.message : 'Failed to update Gmail setting');
     } finally {
       setTogglingGmail(false);
+    }
+  };
+
+  // reCAPTCHA enabled state
+  const isRecaptchaEnabled = fieldValues['RECAPTCHA_ENABLED'] === 'true';
+
+  const handleRecaptchaToggle = async () => {
+    setTogglingRecaptcha(true);
+    setError(null);
+
+    try {
+      const newRecaptchaEnabled = !isRecaptchaEnabled;
+
+      await fetch('/api/admin/settings', {
+        method: settingExists('RECAPTCHA_ENABLED') ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'RECAPTCHA_ENABLED',
+          value: newRecaptchaEnabled.toString(),
+          category: 'security',
+          isSecret: false,
+          description: 'Enable reCAPTCHA protection',
+        }),
+      });
+
+      setFieldValues(prev => ({
+        ...prev,
+        RECAPTCHA_ENABLED: newRecaptchaEnabled.toString(),
+      }));
+      setSavedKeys(prev => new Set([...prev, 'RECAPTCHA_ENABLED']));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update reCAPTCHA setting');
+    } finally {
+      setTogglingRecaptcha(false);
     }
   };
 
@@ -1031,6 +1090,97 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
           <div>{renderField('SQUARE_MIN_VALUE')}</div>
           <div>{renderField('SQUARE_MAX_VALUE')}</div>
           <div>{renderField('SQUARE_TARGET_TOTAL')}</div>
+        </div>
+      </div>
+
+      {/* ==================== SECURITY SECTION ==================== */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Shield className="w-5 h-5 text-green-600" />
+          <h3 className="text-xl font-bold text-gray-900">Security (reCAPTCHA v3)</h3>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Protect login and payment forms from bots and abuse using Google reCAPTCHA v3.
+          Get your keys from the{' '}
+          <a
+            href="https://www.google.com/recaptcha/admin"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-pink hover:underline inline-flex items-center gap-1"
+          >
+            Google reCAPTCHA Admin Console
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </p>
+
+        {/* reCAPTCHA Enable/Disable Toggle */}
+        <div className={`p-4 rounded-lg border-2 mb-4 ${
+          isRecaptchaEnabled ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                isRecaptchaEnabled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900">reCAPTCHA Protection</h4>
+                <p className="text-xs text-gray-500">
+                  {isRecaptchaEnabled ? 'Bot protection is active on login and payment forms' : 'reCAPTCHA protection is disabled'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRecaptchaToggle}
+              disabled={togglingRecaptcha || (!isRecaptchaEnabled && (!fieldValues['RECAPTCHA_SITE_KEY'] || !fieldValues['RECAPTCHA_SECRET_KEY']))}
+              title={!isRecaptchaEnabled && (!fieldValues['RECAPTCHA_SITE_KEY'] || !fieldValues['RECAPTCHA_SECRET_KEY']) ? 'Configure keys first' : ''}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isRecaptchaEnabled ? 'bg-green-500' : 'bg-gray-300'
+              } ${togglingRecaptcha || (!isRecaptchaEnabled && (!fieldValues['RECAPTCHA_SITE_KEY'] || !fieldValues['RECAPTCHA_SECRET_KEY'])) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isRecaptchaEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+          {togglingRecaptcha && (
+            <div className="mt-2 flex items-center gap-2 text-gray-500 text-sm">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              Updating...
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {renderField('RECAPTCHA_SITE_KEY')}
+          {renderField('RECAPTCHA_SECRET_KEY')}
+        </div>
+
+        {/* Status indicator */}
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2">
+            {isRecaptchaEnabled && fieldValues['RECAPTCHA_SITE_KEY'] && fieldValues['RECAPTCHA_SECRET_KEY'] ? (
+              <>
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <span className="text-sm text-green-700">reCAPTCHA is enabled and protecting forms</span>
+              </>
+            ) : fieldValues['RECAPTCHA_SITE_KEY'] && fieldValues['RECAPTCHA_SECRET_KEY'] ? (
+              <>
+                <XCircle className="w-5 h-5 text-yellow-600" />
+                <span className="text-sm text-yellow-700">
+                  reCAPTCHA keys are configured but protection is disabled. Enable the toggle above to activate.
+                </span>
+              </>
+            ) : (
+              <>
+                <XCircle className="w-5 h-5 text-gray-400" />
+                <span className="text-sm text-gray-500">
+                  reCAPTCHA is not configured. Enter your Site Key and Secret Key to enable protection.
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Heart, AlertCircle } from 'lucide-react';
+import { useRecaptcha } from '@/hooks/useRecaptcha';
 
 interface BrandingConfig {
   siteTitle: string;
@@ -23,6 +24,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { ready: recaptchaReady, executeRecaptcha } = useRecaptcha();
 
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
@@ -32,14 +34,23 @@ function LoginForm() {
     setLoading(true);
 
     try {
+      // Execute reCAPTCHA if available
+      const recaptchaToken = await executeRecaptcha('login');
+
       const result = await signIn('credentials', {
         email,
         password,
+        recaptchaToken: recaptchaToken || '',
         redirect: false,
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
+        // Check if it's a security/reCAPTCHA error
+        if (result.error.includes('Security') || result.error.includes('reCAPTCHA')) {
+          setError(result.error);
+        } else {
+          setError('Invalid email or password');
+        }
       } else {
         router.push(callbackUrl);
         router.refresh();
@@ -102,10 +113,10 @@ function LoginForm() {
 
         <button
           type="submit"
-          disabled={loading}
-          className={`w-full btn-primary ${loading ? 'btn-disabled' : ''}`}
+          disabled={loading || !recaptchaReady}
+          className={`w-full btn-primary ${loading || !recaptchaReady ? 'btn-disabled' : ''}`}
         >
-          {loading ? 'Signing in...' : 'Sign in'}
+          {loading ? 'Signing in...' : !recaptchaReady ? 'Loading...' : 'Sign in'}
         </button>
       </form>
     </>

@@ -34,6 +34,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        recaptchaToken: { label: 'reCAPTCHA Token', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -42,6 +43,21 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
             reason: 'Missing credentials',
           });
           throw new Error('Invalid credentials');
+        }
+
+        // Verify reCAPTCHA token if provided (it may be null if reCAPTCHA is not configured)
+        const recaptchaToken = credentials.recaptchaToken as string | undefined;
+        if (recaptchaToken) {
+          // Dynamic import to avoid pulling crypto into Edge middleware
+          const { verifyRecaptchaWithThreshold } = await import('@/lib/recaptcha');
+          const recaptchaResult = await verifyRecaptchaWithThreshold(recaptchaToken, 'login');
+          if (!recaptchaResult.success) {
+            await logLoginFailed({
+              email: credentials.email as string,
+              reason: `reCAPTCHA failed: ${recaptchaResult.error}`,
+            });
+            throw new Error(recaptchaResult.error || 'Security verification failed');
+          }
         }
 
         const [user] = await db

@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { squares, donations, players } from '@/db/schema';
 import { eq, sql, inArray } from 'drizzle-orm';
 import { processPostDonationEmails } from '@/lib/email-service';
+import { verifyRecaptchaWithThreshold } from '@/lib/recaptcha';
 
 /**
  * API route to process a simulated payment
@@ -12,7 +13,18 @@ import { processPostDonationEmails } from '@/lib/email-service';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { squareId, squareIds, playerId, donorName, donorEmail, isAnonymous, amount } = body;
+    const { squareId, squareIds, playerId, donorName, donorEmail, isAnonymous, amount, recaptchaToken } = body;
+
+    // Verify reCAPTCHA token if provided
+    if (recaptchaToken) {
+      const recaptchaResult = await verifyRecaptchaWithThreshold(recaptchaToken, 'payment');
+      if (!recaptchaResult.success) {
+        return NextResponse.json(
+          { error: recaptchaResult.error || 'Security verification failed' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Support both single squareId and multiple squareIds
     const ids: string[] = squareIds || (squareId ? [squareId] : []);

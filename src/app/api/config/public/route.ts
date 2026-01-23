@@ -20,6 +20,10 @@ export async function GET() {
     // Get branding configuration
     const brandingConfig = await getBrandingConfig();
 
+    // Get reCAPTCHA config (public)
+    const recaptchaSiteKey = await getConfig('RECAPTCHA_SITE_KEY');
+    const recaptchaEnabled = await getConfig('RECAPTCHA_ENABLED');
+
     return NextResponse.json({
       // Stripe
       stripePublishableKey,
@@ -33,6 +37,9 @@ export async function GET() {
       squareEnabled: providerConfig.squareEnabled,
       // Branding
       branding: brandingConfig,
+      // Security
+      recaptchaSiteKey,
+      recaptchaEnabled: recaptchaEnabled === 'true',
     });
   } catch (error) {
     console.error('Error fetching public config:', error);

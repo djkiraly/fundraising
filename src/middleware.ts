@@ -22,3 +22,6 @@ export default auth((req) => {
 export const config = {
   matcher: ['/dashboard/:path*', '/admin/:path*'],
 };
+
+// Use Node.js runtime instead of Edge to support crypto module
+export const runtime = 'nodejs';

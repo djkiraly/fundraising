@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { User, UserX, AlertTriangle } from 'lucide-react';
+import { useRecaptcha } from '@/hooks/useRecaptcha';
 
 interface SimulationPaymentFormProps {
   amount: string;
@@ -32,12 +33,18 @@ export function SimulationPaymentForm({
   // Use squareIds if provided, otherwise fall back to single squareId
   const allSquareIds = squareIds || [squareId];
 
+  // reCAPTCHA integration
+  const { ready: recaptchaReady, executeRecaptcha } = useRecaptcha();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
     setError('');
 
     try {
+      // Execute reCAPTCHA if available
+      const recaptchaToken = await executeRecaptcha('payment');
+
       const response = await fetch('/api/payment/simulation/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,6 +55,7 @@ export function SimulationPaymentForm({
           donorEmail,
           isAnonymous,
           amount,
+          recaptchaToken: recaptchaToken || '',
         }),
       });
 
@@ -157,10 +165,10 @@ export function SimulationPaymentForm({
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={processing || (!isAnonymous && !donorName)}
-        className={`w-full btn-primary ${processing || (!isAnonymous && !donorName) ? 'btn-disabled' : ''}`}
+        disabled={!recaptchaReady || processing || (!isAnonymous && !donorName)}
+        className={`w-full btn-primary ${!recaptchaReady || processing || (!isAnonymous && !donorName) ? 'btn-disabled' : ''}`}
       >
-        {processing ? 'Processing...' : `Complete Demo Donation $${Math.round(parseFloat(amount))}`}
+        {processing ? 'Processing...' : !recaptchaReady ? 'Loading...' : `Complete Demo Donation $${Math.round(parseFloat(amount))}`}
       </button>
     </form>
   );
