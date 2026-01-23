@@ -172,7 +172,19 @@ export function DonationModal({ playerId }: { playerId: string }) {
     }
   }, [squareIds.join(','), playerId, router, paymentConfig?.stripePublishableKey]);
 
-  const closeModal = () => {
+  const closeModal = async () => {
+    // Release squares if payment wasn't completed
+    if (!paymentCompletedRef.current && squareIds.length > 0) {
+      try {
+        await fetch('/api/payment/square/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ squareIds }),
+        });
+      } catch (err) {
+        console.error('Error releasing squares on close:', err);
+      }
+    }
     router.push(`/player/${playerId}`, { scroll: false });
   };
 

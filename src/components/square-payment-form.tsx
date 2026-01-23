@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { User, UserX } from 'lucide-react';
 
 // Square Web Payments SDK types
@@ -38,6 +38,7 @@ interface SquarePaymentFormProps {
   environment: 'sandbox' | 'production';
   onSuccess: () => void;
   onError?: (error: string) => void;
+  onCancel?: () => void;
 }
 
 /**
@@ -55,9 +56,26 @@ export function SquarePaymentForm({
   environment,
   onSuccess,
   onError,
+  onCancel,
 }: SquarePaymentFormProps) {
   // Use squareIds if provided, otherwise fall back to single squareId
   const allSquareIds = squareIds || [squareId];
+
+  // Function to release squares when payment fails or is cancelled
+  const releaseSquares = useCallback(async (paymentId?: string) => {
+    try {
+      await fetch('/api/payment/square/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          squareIds: allSquareIds,
+          paymentId,
+        }),
+      });
+    } catch (err) {
+      console.error('Error releasing squares:', err);
+    }
+  }, [allSquareIds]);
   const [donorName, setDonorName] = useState('');
   const [donorEmail, setDonorEmail] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -174,18 +192,24 @@ export function SquarePaymentForm({
       const data = await response.json();
 
       if (!response.ok) {
+        // Release squares on payment failure
+        await releaseSquares(data.paymentId);
         throw new Error(data.error || 'Payment failed');
       }
 
       if (data.success) {
         onSuccess();
       } else {
+        // Release squares if payment was not successful
+        await releaseSquares(data.paymentId);
         setError(data.error || 'Payment was not completed');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMessage);
       onError?.(errorMessage);
+      // Release squares on error
+      await releaseSquares();
     } finally {
       setProcessing(false);
     }
