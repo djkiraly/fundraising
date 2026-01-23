@@ -8,21 +8,36 @@ import { formatCurrency } from '@/lib/utils';
 import { Heart, Trophy, Medal } from 'lucide-react';
 import { getBrandingConfig } from '@/lib/config';
 import { PlayerSearch } from '@/components/ui/player-search';
+import { isMobileDevice } from '@/lib/device-detection';
+import { MobileHome } from '@/components/mobile/mobile-home';
 
 /**
  * Home page - displays all active players
+ * Renders mobile-optimized version for mobile browsers
  */
 export default async function HomePage() {
-  // Fetch all active (non-deleted) players and branding config in parallel
-  const [allPlayers, branding] = await Promise.all([
+  // Fetch all active (non-deleted) players, branding config, and check device in parallel
+  const [allPlayers, branding, isMobile] = await Promise.all([
     db
       .select()
       .from(players)
       .where(and(eq(players.isActive, true), isNull(players.deletedAt)))
       .orderBy(desc(players.totalRaised)),
     getBrandingConfig(),
+    isMobileDevice(),
   ]);
 
+  // Render mobile version for mobile devices
+  if (isMobile) {
+    return (
+      <>
+        <Navbar />
+        <MobileHome players={allPlayers} branding={branding} />
+      </>
+    );
+  }
+
+  // Desktop version
   return (
     <>
       <Navbar />

@@ -12,6 +12,8 @@ import { Heart } from 'lucide-react';
 import { ShareButton } from '@/components/ui/share-button';
 import { formatCurrency } from '@/lib/utils';
 import { PlayerPageTracker } from '@/components/player-page-tracker';
+import { isMobileDevice } from '@/lib/device-detection';
+import { MobilePlayerPage } from '@/components/mobile/mobile-player-page';
 
 // UUID regex pattern for backwards compatibility
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,6 +61,28 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const availableSquares = totalSquares - purchasedSquares;
   const successfulDonations = playerDonations.filter((d) => d.status === 'succeeded' || d.status === 'completed');
 
+  // Check if mobile device
+  const isMobile = await isMobileDevice();
+
+  // Render mobile version for mobile devices
+  if (isMobile) {
+    return (
+      <>
+        <PlayerPageTracker playerId={player.id} path={`/player/${player.slug}`} />
+        <Navbar />
+        <MobilePlayerPage
+          player={player}
+          squares={playerSquares}
+          donations={playerDonations}
+          purchasedSquares={purchasedSquares}
+          availableSquares={availableSquares}
+        />
+        <DonationModal playerId={player.id} />
+      </>
+    );
+  }
+
+  // Desktop version
   return (
     <>
       <PlayerPageTracker playerId={player.id} path={`/player/${player.slug}`} />
