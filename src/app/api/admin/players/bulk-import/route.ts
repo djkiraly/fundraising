@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
-import { users, players } from '@/db/schema';
+import { users, players, passwordResetTokens } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { generateHeartSquares } from '@/lib/squares';
 import { generateUniqueSlug } from '@/lib/utils';
+import { sendEmail, isGmailConfigured, isGmailEnabled } from '@/lib/gmail';
+import { getPasswordSetupEmailHtml } from '@/lib/email-templates';
+import { getConfig } from '@/lib/config';
+import crypto from 'crypto';
+
+const PASSWORD_SETUP_TOKEN_EXPIRY_HOURS = 72; // 3 days
 
 const MAX_PLAYERS_PER_IMPORT = 100;
 
@@ -27,6 +33,8 @@ interface ImportResult {
   email: string;
   error?: string;
   playerId?: string;
+  emailSent?: boolean;
+  emailError?: string;
 }
 
 /**
@@ -41,13 +49,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { data } = body;
+    const { data, sendPasswordSetupEmails = false } = body;
 
     if (!data || typeof data !== 'string') {
       return NextResponse.json(
         { error: 'Data is required' },
         { status: 400 }
       );
+    }
+
+    // Check if email is configured when sendPasswordSetupEmails is requested
+    let canSendEmails = false;
+    let appUrl = '';
+    if (sendPasswordSetupEmails) {
+      const gmailConfigured = await isGmailConfigured();
+      const gmailEnabled = await isGmailEnabled();
+      canSendEmails = gmailConfigured && gmailEnabled;
+      appUrl = await getConfig('APP_URL') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
     }
 
     // Parse tab-delimited data
@@ -240,12 +258,56 @@ export async function POST(request: NextRequest) {
           await generateHeartSquares(newPlayer.id);
         }
 
+        // Send password setup email if requested and email is configured
+        let emailSent = false;
+        let emailError: string | undefined;
+        if (sendPasswordSetupEmails && canSendEmails) {
+          try {
+            // Generate a secure random token
+            const token = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date(Date.now() + PASSWORD_SETUP_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
+
+            // Save the token to the database
+            await db.insert(passwordResetTokens).values({
+              userId: newUser.id,
+              token,
+              expiresAt,
+            });
+
+            // Generate the setup URL
+            const setupUrl = `${appUrl}/reset-password?token=${token}`;
+
+            // Generate email HTML
+            const html = getPasswordSetupEmailHtml({
+              playerName: row.name,
+              setupUrl,
+              expiryHours: PASSWORD_SETUP_TOKEN_EXPIRY_HOURS,
+            });
+
+            // Send the email
+            const result = await sendEmail({
+              to: row.email.toLowerCase(),
+              subject: 'Set Up Your Fundraiser Account Password',
+              html,
+            });
+
+            emailSent = result.success;
+            if (!result.success) {
+              emailError = result.error;
+            }
+          } catch (err) {
+            emailError = err instanceof Error ? err.message : 'Failed to send email';
+          }
+        }
+
         results.push({
           success: true,
           row: rowNum,
           name: row.name,
           email: row.email,
           playerId: newPlayer.id,
+          emailSent: sendPasswordSetupEmails ? emailSent : undefined,
+          emailError,
         });
         successCount++;
       } catch (err) {
@@ -260,12 +322,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Count emails sent
+    const emailsSent = results.filter(r => r.emailSent).length;
+    const emailsFailed = results.filter(r => r.success && sendPasswordSetupEmails && !r.emailSent).length;
+
     return NextResponse.json({
       success: true,
       summary: {
         total: dataRows.length,
         successful: successCount,
         failed: errorCount,
+        emailsSent: sendPasswordSetupEmails ? emailsSent : undefined,
+        emailsFailed: sendPasswordSetupEmails ? emailsFailed : undefined,
+        emailConfigured: sendPasswordSetupEmails ? canSendEmails : undefined,
       },
       results,
     });

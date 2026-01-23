@@ -43,6 +43,8 @@ export async function sendDonationReceipt(data: {
     }
 
     const appUrl = await getAppUrl();
+    const receiptUrl = data.transactionId ? `${appUrl}/receipt/${data.transactionId}` : undefined;
+
     const html = getDonationReceiptHtml({
       donorName: data.donorName,
       playerName: data.playerName,
@@ -54,6 +56,7 @@ export async function sendDonationReceipt(data: {
         day: 'numeric',
       }),
       transactionId: data.transactionId,
+      receiptUrl,
       appName: APP_NAME,
       appUrl,
     });

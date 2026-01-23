@@ -9,7 +9,8 @@ interface SimulationPaymentFormProps {
   squareId: string;
   squareIds?: string[];
   playerId: string;
-  onSuccess: () => void;
+  playerSlug?: string;
+  onSuccess: (transactionId?: string) => void;
 }
 
 /**
@@ -65,7 +66,7 @@ export function SimulationPaymentForm({
         throw new Error(data.error || 'Payment failed');
       }
 
-      onSuccess();
+      onSuccess(data.paymentId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
     } finally {

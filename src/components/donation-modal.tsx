@@ -188,12 +188,16 @@ export function DonationModal({ playerId }: { playerId: string }) {
     router.push(`/player/${playerId}`, { scroll: false });
   };
 
-  const handleSuccess = () => {
+  const handleSuccess = (transactionId?: string) => {
     // Set ref immediately (synchronous) to prevent any re-fetching
     paymentCompletedRef.current = true;
     setPaymentCompleted(true);
-    // Navigate away and reload
-    window.location.href = `/player/${playerId}?success=true`;
+    // Navigate to receipt page if we have a transaction ID, otherwise back to player page
+    if (transactionId) {
+      window.location.href = `/receipt/${transactionId}`;
+    } else {
+      window.location.href = `/player/${playerId}?success=true`;
+    }
   };
 
   if (squareIds.length === 0) return null;

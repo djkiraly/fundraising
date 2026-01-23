@@ -5,6 +5,7 @@ import { squares, donations, players } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { logDonationCompleted, logDonationFailed } from '@/lib/audit';
 import { verifyRecaptchaWithThreshold } from '@/lib/recaptcha';
+import { processPostDonationEmails } from '@/lib/email-service';
 
 /**
  * API route to process a Square payment
@@ -148,6 +149,8 @@ export async function POST(request: NextRequest) {
         .where(eq(players.id, playerId))
         .limit(1);
 
+      const previousTotal = player ? parseFloat(player.totalRaised) : 0;
+
       if (player) {
         const totalDonated = totalAmountCents / 100;
         const newTotal = parseFloat(player.totalRaised) + totalDonated;
@@ -156,6 +159,19 @@ export async function POST(request: NextRequest) {
           .set({ totalRaised: newTotal.toFixed(2) })
           .where(eq(players.id, playerId));
       }
+
+      // Send email notifications (non-blocking)
+      processPostDonationEmails({
+        playerId,
+        squareId: requestedSquares[0].id,
+        amount: totalAmountCents / 100,
+        donorEmail: donorEmail || null,
+        donorName: isAnonymous ? null : donorName || null,
+        transactionId: paymentResult.paymentId,
+        previousTotal,
+      }).catch((err) => {
+        console.error('Error sending post-donation emails:', err);
+      });
 
       return NextResponse.json({
         success: true,

@@ -9,7 +9,8 @@
       "Bash(npx tsc:*)",
       "Bash(del \"D:\\\\Projects\\\\Fundraiser\\\\src\\\\db\\\\migrations\\\\0003_manual_donations.sql\")",
       "Bash(npx drizzle-kit:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }

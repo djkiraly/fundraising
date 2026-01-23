@@ -14,6 +14,7 @@ interface DonationReceiptData extends BaseTemplateData {
   amount: string;
   donationDate: string;
   transactionId?: string;
+  receiptUrl?: string;
 }
 
 interface PlayerNotificationData extends BaseTemplateData {
@@ -48,6 +49,12 @@ interface TestEmailData extends BaseTemplateData {
 interface PasswordResetEmailData extends BaseTemplateData {
   userName: string;
   resetUrl: string;
+  expiryHours: number;
+}
+
+interface PasswordSetupEmailData extends BaseTemplateData {
+  playerName: string;
+  setupUrl: string;
   expiryHours: number;
 }
 
@@ -92,7 +99,7 @@ function wrapInHtmlDocument(content: string, title: string): string {
  * Donation receipt email for donors
  */
 export function getDonationReceiptHtml(data: DonationReceiptData): string {
-  const { donorName, playerName, amount, donationDate, transactionId, appName = 'Volleyball Fundraiser', appUrl = '' } = data;
+  const { donorName, playerName, amount, donationDate, transactionId, receiptUrl, appName = 'Volleyball Fundraiser', appUrl = '' } = data;
 
   const content = `
     <div class="header">
@@ -129,11 +136,18 @@ export function getDonationReceiptHtml(data: DonationReceiptData): string {
 
       <p>Your support makes a real difference in helping our athletes achieve their goals. Every contribution brings them one step closer to success!</p>
 
-      ${appUrl ? `
+      ${receiptUrl ? `
+      <p style="text-align: center; margin-top: 30px;">
+        <a href="${receiptUrl}" class="button">View & Print Receipt</a>
+      </p>
+      <p style="text-align: center; margin-top: 10px; font-size: 14px; color: #6b7280;">
+        You can view and print your receipt at any time using the link above.
+      </p>
+      ` : (appUrl ? `
       <p style="text-align: center; margin-top: 30px;">
         <a href="${appUrl}" class="button">Visit Our Fundraiser</a>
       </p>
-      ` : ''}
+      ` : '')}
     </div>
     <div class="footer">
       <p style="margin: 0;">${appName}</p>
@@ -362,6 +376,63 @@ export function getPasswordResetEmailHtml(data: PasswordResetEmailData): string 
   `;
 
   return wrapInHtmlDocument(content, `Reset Your Password - ${appName}`);
+}
+
+/**
+ * Password setup email for new players
+ */
+export function getPasswordSetupEmailHtml(data: PasswordSetupEmailData): string {
+  const {
+    playerName,
+    setupUrl,
+    expiryHours,
+    appName = 'Volleyball Fundraiser',
+  } = data;
+
+  const expiryDays = Math.round(expiryHours / 24);
+
+  const content = `
+    <div class="header">
+      <h1>Welcome to ${appName}!</h1>
+    </div>
+    <div class="content">
+      <p>Hi ${playerName},</p>
+
+      <p>Your fundraiser account has been created! To get started, please set up your password by clicking the button below:</p>
+
+      <p style="text-align: center; margin: 30px 0;">
+        <a href="${setupUrl}" class="button">Set Up Your Password</a>
+      </p>
+
+      <div class="highlight">
+        <p style="margin: 0; color: #374151;"><strong>What happens next?</strong></p>
+        <ul style="color: #6b7280; margin: 10px 0 0 0; padding-left: 20px;">
+          <li>Set your password using the link above</li>
+          <li>Log in to view your fundraiser dashboard</li>
+          <li>Share your unique fundraiser page with family and friends</li>
+          <li>Track your progress toward your goal!</li>
+        </ul>
+      </div>
+
+      <div class="highlight" style="background: #fef3c7; margin-top: 15px;">
+        <p style="margin: 0; color: #92400e; font-size: 14px;">
+          <strong>Important:</strong> This link will expire in ${expiryDays} day${expiryDays > 1 ? 's' : ''}.
+          If it expires, contact your administrator to send a new one.
+        </p>
+      </div>
+
+      <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+        If the button doesn't work, copy and paste this link into your browser:<br>
+        <a href="${setupUrl}" style="color: #ec4899; word-break: break-all;">${setupUrl}</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p style="margin: 0;">${appName}</p>
+      <p style="margin: 10px 0 0 0;">Good luck with your fundraising!</p>
+    </div>
+  `;
+
+  return wrapInHtmlDocument(content, `Set Up Your Account - ${appName}`);
 }
 
 /**

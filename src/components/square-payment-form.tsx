@@ -34,10 +34,11 @@ interface SquarePaymentFormProps {
   squareId: string; // Heart grid square ID (for backwards compatibility)
   squareIds?: string[]; // Multiple heart grid square IDs
   playerId: string;
+  playerSlug?: string;
   applicationId: string;
   locationId: string;
   environment: 'sandbox' | 'production';
-  onSuccess: () => void;
+  onSuccess: (transactionId?: string) => void;
   onError?: (error: string) => void;
   onCancel?: () => void;
 }
@@ -206,7 +207,7 @@ export function SquarePaymentForm({
       }
 
       if (data.success) {
-        onSuccess();
+        onSuccess(data.paymentId);
       } else {
         // Release squares if payment was not successful
         await releaseSquares(data.paymentId);

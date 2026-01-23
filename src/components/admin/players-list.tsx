@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Player } from '@/db/schema';
 import { formatCurrency, calculateProgress } from '@/lib/utils';
-import { ExternalLink, Trophy, Shuffle, RefreshCw, Plus, Pencil, Trash2, X, DollarSign } from 'lucide-react';
+import { ExternalLink, Trophy, Shuffle, RefreshCw, Plus, Pencil, Trash2, X, DollarSign, Mail, Search, Filter } from 'lucide-react';
 
 interface PlayersListProps {
   players: Player[];
@@ -73,6 +73,48 @@ export function PlayersList({ players }: PlayersListProps) {
   const [donationPlayer, setDonationPlayer] = useState<Player | null>(null);
   const [donationFormData, setDonationFormData] = useState<ManualDonationFormData>(initialManualDonationData);
   const [savingDonation, setSavingDonation] = useState(false);
+
+  // Password setup email state
+  const [sendingPasswordSetup, setSendingPasswordSetup] = useState<Record<string, boolean>>({});
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [progressFilter, setProgressFilter] = useState<'all' | 'goalMet' | 'inProgress' | 'notStarted'>('all');
+
+  // Filter players based on search and filters
+  const filteredPlayers = players.filter(player => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      if (!player.name.toLowerCase().includes(query)) {
+        return false;
+      }
+    }
+
+    // Status filter
+    if (statusFilter === 'active' && !player.isActive) return false;
+    if (statusFilter === 'inactive' && player.isActive) return false;
+
+    // Progress filter
+    const progress = calculateProgress(player.totalRaised, player.goal);
+    if (progressFilter === 'goalMet' && progress < 100) return false;
+    if (progressFilter === 'inProgress' && (progress >= 100 || progress === 0)) return false;
+    if (progressFilter === 'notStarted' && progress > 0) return false;
+
+    return true;
+  });
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setProgressFilter('all');
+  };
+
+  const hasActiveFilters = searchQuery || statusFilter !== 'all' || progressFilter !== 'all';
+
+  // Get the top fundraiser ID (first player in the original sorted list)
+  const topFundraiserId = players.length > 0 ? players[0].id : null;
 
   const handleRandomize = async (playerId: string, playerName: string) => {
     if (!confirm(`Randomize square values for ${playerName}? This will update all unpurchased squares.`)) {
@@ -330,34 +372,127 @@ export function PlayersList({ players }: PlayersListProps) {
     }
   };
 
+  // Send password setup email handler
+  const handleSendPasswordSetup = async (player: Player) => {
+    if (!confirm(`Send password setup email to ${player.name}?`)) {
+      return;
+    }
+
+    setSendingPasswordSetup(prev => ({ ...prev, [player.id]: true }));
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/players/${player.id}/send-password-setup`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email');
+      }
+
+      setMessage({
+        type: 'success',
+        text: data.message || `Password setup email sent to ${player.name}`,
+      });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to send password setup email',
+      });
+    } finally {
+      setSendingPasswordSetup(prev => ({ ...prev, [player.id]: false }));
+    }
+  };
+
   return (
     <>
     <div className="card overflow-hidden">
       {/* Header with Add Player and Randomize All buttons */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <div className="text-sm text-gray-600">
-          {players.length} player{players.length !== 1 ? 's' : ''}
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={openAddModal}
-            className="px-4 py-2 bg-primary-pink text-white rounded-lg hover:bg-primary-pink-dark flex items-center gap-2 text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Add Player
-          </button>
-          <button
-            onClick={handleRandomizeAll}
-            disabled={randomizingAll}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2 text-sm"
-          >
-            {randomizingAll ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Shuffle className="w-4 h-4" />
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm text-gray-600">
+            {filteredPlayers.length} of {players.length} player{players.length !== 1 ? 's' : ''}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="ml-2 text-primary-pink hover:text-primary-pink-dark underline"
+              >
+                Clear filters
+              </button>
             )}
-            Randomize All
-          </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={openAddModal}
+              className="px-4 py-2 bg-primary-pink text-white rounded-lg hover:bg-primary-pink-dark flex items-center gap-2 text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Add Player
+            </button>
+            <button
+              onClick={handleRandomizeAll}
+              disabled={randomizingAll}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              {randomizingAll ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Shuffle className="w-4 h-4" />
+              )}
+              Randomize All
+            </button>
+          </div>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search players..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-pink focus:border-transparent text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-pink focus:border-transparent text-sm bg-white"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          {/* Progress Filter */}
+          <select
+            value={progressFilter}
+            onChange={(e) => setProgressFilter(e.target.value as 'all' | 'goalMet' | 'inProgress' | 'notStarted')}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-pink focus:border-transparent text-sm bg-white"
+          >
+            <option value="all">All Progress</option>
+            <option value="goalMet">Goal Met (100%+)</option>
+            <option value="inProgress">In Progress (1-99%)</option>
+            <option value="notStarted">Not Started (0%)</option>
+          </select>
         </div>
       </div>
 
@@ -399,7 +534,7 @@ export function PlayersList({ players }: PlayersListProps) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {players.map((player, index) => {
+            {filteredPlayers.map((player) => {
               const progress = calculateProgress(player.totalRaised, player.goal);
               const isComplete = progress >= 100;
 
@@ -427,7 +562,7 @@ export function PlayersList({ players }: PlayersListProps) {
                           <div className="text-sm font-medium text-gray-900">
                             {player.name}
                           </div>
-                          {index === 0 && (
+                          {player.id === topFundraiserId && (
                             <span title="Top Fundraiser">
                               <Trophy className="w-4 h-4 text-yellow-500" />
                             </span>
@@ -486,6 +621,18 @@ export function PlayersList({ players }: PlayersListProps) {
                         <DollarSign className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => handleSendPasswordSetup(player)}
+                        disabled={sendingPasswordSetup[player.id]}
+                        className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:opacity-50"
+                        title="Send password setup email"
+                      >
+                        {sendingPasswordSetup[player.id] ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
                         onClick={() => openEditModal(player)}
                         className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
                         title="Edit player"
@@ -533,9 +680,21 @@ export function PlayersList({ players }: PlayersListProps) {
         </table>
       </div>
 
-      {players.length === 0 && (
+      {filteredPlayers.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-600">No players found. Click "Add Player" to create one.</p>
+          {players.length === 0 ? (
+            <p className="text-gray-600">No players found. Click &quot;Add Player&quot; to create one.</p>
+          ) : (
+            <div>
+              <p className="text-gray-600 mb-2">No players match your search criteria.</p>
+              <button
+                onClick={clearFilters}
+                className="text-primary-pink hover:text-primary-pink-dark underline text-sm"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
