@@ -1,9 +1,13 @@
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { migrate } from 'drizzle-orm/neon-serverless/migrator';
-import { Pool } from '@neondatabase/serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
 import * as dotenv from 'dotenv';
+import ws from 'ws';
 
 dotenv.config();
+
+// Configure Neon for WebSocket support in Node.js environment
+neonConfig.webSocketConstructor = ws;
 
 const runMigration = async () => {
   if (!process.env.DATABASE_URL) {
