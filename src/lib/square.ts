@@ -4,6 +4,17 @@ import crypto from 'crypto';
 
 let squareClient: SquareClient | null = null;
 let squareAccessToken: string | null = null;
+let squareEnvironment: string | null = null;
+
+/**
+ * Reset the Square client cache
+ * Call this when Square settings are updated
+ */
+export function resetSquareClient(): void {
+  squareClient = null;
+  squareAccessToken = null;
+  squareEnvironment = null;
+}
 
 /**
  * Get or create a Square client instance
@@ -11,29 +22,31 @@ let squareAccessToken: string | null = null;
  */
 export async function getSquareClient(): Promise<SquareClient> {
   const config = await getSquareConfig();
+  const accessToken = config.accessToken || process.env.SQUARE_ACCESS_TOKEN;
+  const environment = config.environment;
 
-  // If the access token has changed, recreate the instance
-  if (config.accessToken && config.accessToken !== squareAccessToken) {
+  // If the access token or environment has changed, recreate the instance
+  if (accessToken && (accessToken !== squareAccessToken || environment !== squareEnvironment)) {
     squareClient = new SquareClient({
-      token: config.accessToken,
-      environment: config.environment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+      token: accessToken,
+      environment: environment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
     });
-    squareAccessToken = config.accessToken;
+    squareAccessToken = accessToken;
+    squareEnvironment = environment;
   }
 
   // If we have no instance yet, try to create one
   if (!squareClient) {
-    const accessToken = config.accessToken || process.env.SQUARE_ACCESS_TOKEN;
-
     if (!accessToken) {
       throw new Error('Square access token is not configured. Please set it in the admin settings or SQUARE_ACCESS_TOKEN environment variable.');
     }
 
     squareClient = new SquareClient({
       token: accessToken,
-      environment: config.environment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+      environment: environment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
     });
     squareAccessToken = accessToken;
+    squareEnvironment = environment;
   }
 
   return squareClient;

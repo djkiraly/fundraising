@@ -5,6 +5,16 @@ import { settings, settingsAuditLog } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAllSettings, setConfig, deleteConfig, clearConfigCache } from '@/lib/config';
 import { encrypt, decrypt, maskSecret } from '@/lib/encryption';
+import { resetSquareClient } from '@/lib/square';
+
+// Square-related setting keys that should reset the client
+const SQUARE_SETTING_KEYS = [
+  'SQUARE_ACCESS_TOKEN',
+  'SQUARE_APPLICATION_ID',
+  'SQUARE_LOCATION_ID',
+  'SQUARE_ENVIRONMENT',
+  'SQUARE_ENABLED',
+];
 
 /**
  * GET /api/admin/settings
@@ -187,6 +197,11 @@ export async function PUT(request: NextRequest) {
     // Clear the config cache
     clearConfigCache();
 
+    // Reset Square client if Square settings changed
+    if (SQUARE_SETTING_KEYS.includes(key)) {
+      resetSquareClient();
+    }
+
     return NextResponse.json({
       success: true,
       setting: {
@@ -254,6 +269,11 @@ export async function DELETE(request: NextRequest) {
 
     // Clear the config cache
     clearConfigCache();
+
+    // Reset Square client if Square settings changed
+    if (SQUARE_SETTING_KEYS.includes(key)) {
+      resetSquareClient();
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
