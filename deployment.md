@@ -349,7 +349,81 @@ Configure webhooks for your chosen payment provider(s).
 8. Add it to your `.env` file as `SQUARE_WEBHOOK_SIGNATURE_KEY`
 9. Restart the application: `pm2 restart volleyball-fundraiser`
 
-## Step 10: Firewall Configuration
+## Step 10: Email Configuration (Gmail API)
+
+Email functionality enables automatic password setup emails for new players, donation receipts, and notifications.
+
+### 10.1 Create Google Cloud Project
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (e.g., "Volleyball Fundraiser")
+3. Enable the Gmail API:
+   - Go to "APIs & Services" → "Library"
+   - Search for "Gmail API"
+   - Click "Enable"
+
+### 10.2 Configure OAuth Consent Screen
+1. Go to "APIs & Services" → "OAuth consent screen"
+2. Select "External" user type → Create
+3. Fill in required fields:
+   - App name: "Volleyball Fundraiser"
+   - User support email: your email
+   - Developer contact email: your email
+4. Click "Save and Continue"
+5. On Scopes page, click "Add or Remove Scopes"
+6. Add scope: `https://www.googleapis.com/auth/gmail.send`
+7. Save and continue through remaining steps
+
+### 10.3 Create OAuth Credentials
+1. Go to "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → "OAuth 2.0 Client ID"
+3. Application type: "Web application"
+4. Name: "Volleyball Fundraiser"
+5. Authorized redirect URIs: `https://yourdomain.com/api/admin/gmail/callback`
+6. Click "Create"
+7. Copy the **Client ID** and **Client Secret**
+
+### 10.4 Configure in Admin Panel
+After deploying, configure email in the admin settings:
+
+1. Log in to admin panel: `https://yourdomain.com/admin`
+2. Navigate to Settings → Email Configuration
+3. Enter Gmail OAuth credentials:
+   - Gmail Client ID
+   - Gmail Client Secret
+   - Redirect URI: `https://yourdomain.com/api/admin/gmail/callback`
+4. Click "Save"
+5. Click "Connect Gmail Account" and authorize with Google
+6. Toggle "Enable Gmail" to ON
+7. Ensure "Password Setup Emails" is enabled for automatic new player emails
+
+### 10.5 Verify Email is Working
+1. Create a test player with an email address
+2. Check that the player receives a password setup email
+3. Monitor logs for any email errors: `pm2 logs volleyball-fundraiser`
+
+### 10.6 Email Feature Summary
+When properly configured, the following emails are sent automatically:
+
+| Trigger | Email Sent | Recipient |
+|---------|------------|-----------|
+| New player created (individual) | Password setup link | Player |
+| New players imported (bulk) | Password setup link | Each player |
+| Donation completed | Receipt | Donor |
+| Donation completed | Notification | Player |
+| 50% goal reached | Milestone celebration | Player |
+| 100% goal reached | Goal achieved celebration | Player |
+| Player sends outreach | Fundraiser invitation | Up to 10 recipients |
+
+### Player Email Outreach
+
+Players can send invitation emails to potential supporters directly from their dashboard:
+- Up to 10 emails can be sent at a time
+- Players write a custom message using the rich text editor
+- Email subject: "[Player Name] is fundraising for their Panhandle Powerhouse Volleyball Club"
+- Email includes the player's message and a link to their fundraising page
+- Requires Gmail to be configured and enabled
+
+## Step 11: Firewall Configuration
 
 ### 10.1 Configure UFW (if using)
 ```bash
@@ -360,9 +434,9 @@ sudo ufw enable
 sudo ufw status
 ```
 
-## Step 11: Monitoring and Maintenance
+## Step 12: Monitoring and Maintenance
 
-### 11.1 Set Up Log Rotation
+### 12.1 Set Up Log Rotation
 Create log rotation config:
 ```bash
 sudo nano /etc/logrotate.d/volleyball-fundraiser
@@ -387,7 +461,7 @@ Add:
 }
 ```
 
-### 11.2 Monitor Application
+### 12.2 Monitor Application
 ```bash
 # Check PM2 status
 pm2 status
@@ -403,9 +477,9 @@ sudo tail -f /var/log/nginx/volleyball-fundraiser-error.log
 sudo tail -f /var/log/nginx/volleyball-fundraiser-access.log
 ```
 
-## Step 12: Backup Strategy
+## Step 13: Backup Strategy
 
-### 12.1 Database Backups
+### 13.1 Database Backups
 Since you're using Neon.Tech, backups are handled automatically. However, you can also:
 
 ```bash
@@ -419,7 +493,7 @@ mkdir -p $BACKUP_DIR
 pg_dump $DATABASE_URL > $BACKUP_DIR/backup_$DATE.sql
 ```
 
-### 12.2 Application Backups
+### 13.2 Application Backups
 ```bash
 # Backup application files
 tar -czf /var/backups/volleyball-fundraiser-app-$(date +%Y%m%d).tar.gz /var/www/volleyball-fundraiser
@@ -494,9 +568,11 @@ pm2 start npm --name "volleyball-fundraiser" -i max -- start
 - [ ] Environment variables secured (not in version control)
 - [ ] Regular security updates: `sudo apt update && sudo apt upgrade`
 - [ ] Nginx security headers configured
-- [ ] Stripe webhook secret configured
+- [ ] Stripe/Square webhook secret configured
 - [ ] Database credentials secured
 - [ ] Regular backups configured
+- [ ] Gmail OAuth credentials secured (stored encrypted in database)
+- [ ] Gmail redirect URI matches production domain exactly
 
 ## Updating the Application
 
@@ -518,6 +594,19 @@ npm run build
 # Restart
 pm2 restart volleyball-fundraiser
 ```
+
+### Recent Database Migrations
+
+When updating, ensure you run `npm run db:migrate` to apply any new migrations. Recent migrations include:
+
+| Migration | Description |
+|-----------|-------------|
+| `0010_aspiring_epoch.sql` | Adds `message` field to players table for rich text personal messages |
+
+Players can now add personal messages to their fundraising pages via the dashboard. The message supports:
+- Bold, italic, underline text formatting
+- Left, center, right alignment
+- Messages are sanitized server-side to prevent XSS attacks
 
 ## Support
 

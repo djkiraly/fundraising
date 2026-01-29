@@ -7,10 +7,11 @@ A modern, full-stack fundraising web application designed for volleyball clubs. 
 ### 🎯 Core Features
 - **Heart-Shaped Donation Grids**: Unique visual representation of fundraising progress
 - **Player Public Pages**: Shareable URLs for each player's fundraiser
+- **Personal Messages**: Players can add rich text messages to their fundraising pages
 - **Secure Payment Processing**: Stripe integration for donations
 - **Anonymous or Named Donations**: Donors can choose to display their name or remain anonymous
 - **Real-time Progress Tracking**: Live updates of fundraising goals
-- **Player Dashboard**: Track donations and share fundraiser links
+- **Player Dashboard**: Track donations, share links, and customize personal message
 - **Admin Analytics**: Comprehensive analytics with charts and player management
 
 ### 🎨 Design
@@ -169,6 +170,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - See donation history
 - Share personal fundraiser link
 - Track square purchases
+- Add personal message with rich text formatting (bold, italic, underline, alignment)
+- Send outreach emails to invite supporters (up to 10 at a time)
 
 #### 👨‍💼 Admin
 - Access at `/admin`
@@ -408,6 +411,62 @@ npm run build
 | `SQUARE_LOCATION_ID` | Square location ID | If Square | `L...` |
 | `SQUARE_WEBHOOK_SIGNATURE_KEY` | Square webhook signature | If Square | `...` |
 | `SQUARE_ENVIRONMENT` | Square environment | If Square | `production` or `sandbox` |
+
+## 📧 Email Configuration (Gmail)
+
+The application uses Gmail API for sending transactional emails including:
+- **Password setup emails** - Sent automatically to new players when created (if enabled)
+- **Donation receipts** - Sent to donors after successful payments
+- **Player notifications** - Sent to players when they receive donations
+- **Milestone emails** - Sent when players reach 50% or 100% of their goal
+
+### Setting Up Gmail API
+
+1. **Create a Google Cloud Project**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing
+   - Enable the Gmail API
+
+2. **Configure OAuth Consent Screen**
+   - Go to APIs & Services → OAuth consent screen
+   - Select "External" user type
+   - Fill in app name, support email, and developer contact
+   - Add scope: `https://www.googleapis.com/auth/gmail.send`
+
+3. **Create OAuth Credentials**
+   - Go to APIs & Services → Credentials
+   - Create OAuth 2.0 Client ID (Web application)
+   - Add authorized redirect URI: `https://yourdomain.com/api/admin/gmail/callback`
+   - Copy Client ID and Client Secret
+
+4. **Configure in Admin Settings**
+   - Navigate to Admin → Settings → Email Configuration
+   - Enter Gmail Client ID and Client Secret
+   - Set Redirect URI to match the one in Google Cloud Console
+   - Click "Connect Gmail Account" and authorize
+   - Toggle "Enable Gmail" to activate email sending
+
+### Email Settings (Admin Panel)
+
+These settings are configured via the Admin Settings page (not environment variables):
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `GMAIL_ENABLED` | Master toggle for all email functionality | `false` |
+| `PASSWORD_EMAIL_ENABLED` | Enable automatic password setup emails for new players | `true` |
+| `GMAIL_CLIENT_ID` | Google OAuth Client ID | - |
+| `GMAIL_CLIENT_SECRET` | Google OAuth Client Secret | - |
+| `GMAIL_REDIRECT_URI` | OAuth callback URL | - |
+| `GMAIL_SENDER_EMAIL` | Email address to send from | - |
+
+### Automatic Password Setup Emails
+
+When both `GMAIL_ENABLED` and `PASSWORD_EMAIL_ENABLED` are set to `true`:
+
+- **Individual Player Creation**: When an admin creates a new player with an email/password, the player automatically receives a password setup email
+- **Bulk Import**: All imported players automatically receive password setup emails
+
+The password setup link expires after 72 hours. Players can also request a new password reset from the login page.
 
 ## 🤝 Contributing
 

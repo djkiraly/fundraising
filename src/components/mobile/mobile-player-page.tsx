@@ -3,8 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
-import { Heart, Share2, ChevronLeft, Gift } from 'lucide-react';
+import { Heart, Share2, ChevronLeft, Gift, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
+import { PlayerMessage } from '@/components/ui/player-message';
+import { MobileHeartGrid } from '@/components/mobile/mobile-heart-grid';
 
 interface Square {
   id: string;
@@ -32,6 +34,7 @@ interface Player {
   name: string;
   slug: string;
   photoUrl: string | null;
+  message: string | null;
   goal: string;
   totalRaised: string;
 }
@@ -61,25 +64,6 @@ export function MobilePlayerPage({
   const goal = parseFloat(player.goal);
   const progress = goal > 0 ? Math.min((raised / goal) * 100, 100) : 0;
 
-  // Get available squares sorted by value
-  const availableSquaresList = squares
-    .filter(s => !s.isPurchased)
-    .sort((a, b) => parseFloat(a.value) - parseFloat(b.value));
-
-  // Group by value ranges for easier selection
-  const squaresByValue = availableSquaresList.reduce((acc, square) => {
-    const value = parseFloat(square.value);
-    let range: string;
-    if (value <= 3) range = '$1-$3';
-    else if (value <= 5) range = '$4-$5';
-    else if (value <= 10) range = '$6-$10';
-    else range = '$10+';
-
-    if (!acc[range]) acc[range] = [];
-    acc[range].push(square);
-    return acc;
-  }, {} as Record<string, Square[]>);
-
   const successfulDonations = donations.filter(d => d.status === 'succeeded' || d.status === 'completed');
 
   const handleShare = async () => {
@@ -100,13 +84,6 @@ export function MobilePlayerPage({
       await navigator.clipboard.writeText(window.location.href);
       alert('Link copied to clipboard!');
     }
-  };
-
-  const handleSelectSquare = (square: Square) => {
-    // Dispatch event to open donation modal
-    window.dispatchEvent(new CustomEvent('openDonationModal', {
-      detail: { squareId: square.id }
-    }));
   };
 
   return (
@@ -195,51 +172,35 @@ export function MobilePlayerPage({
         </div>
       </section>
 
-      {/* Quick Donate Section */}
-      <section className="px-4 mb-4">
-        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-          <div className="flex items-center gap-2 mb-3">
-            <Heart className="w-5 h-5 text-primary-pink fill-current" />
-            <h2 className="font-bold text-gray-900">Pick a Square to Donate</h2>
+      {/* Player Message */}
+      {player.message && player.message !== '<p></p>' && (
+        <section className="px-4 mb-4">
+          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquare className="w-5 h-5 text-primary-pink" />
+              <h2 className="font-bold text-gray-900">Message from {player.name}</h2>
+            </div>
+            <PlayerMessage message={player.message} className="text-sm" />
           </div>
+        </section>
+      )}
 
-          <p className="text-sm text-gray-600 mb-4">
-            Each square has a value. Tap to donate that amount!
-          </p>
-
-          {/* Square Selection by Price Range */}
-          {Object.entries(squaresByValue).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(squaresByValue).map(([range, rangeSquares]) => (
-                <div key={range}>
-                  <div className="text-xs font-medium text-gray-500 mb-2">{range}</div>
-                  <div className="flex flex-wrap gap-2">
-                    {rangeSquares.slice(0, 8).map((square) => (
-                      <button
-                        key={square.id}
-                        onClick={() => handleSelectSquare(square)}
-                        className="px-3 py-2 bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200 rounded-lg text-primary-pink font-bold text-sm active:scale-95 transition-transform"
-                      >
-                        {formatCurrency(square.value)}
-                      </button>
-                    ))}
-                    {rangeSquares.length > 8 && (
-                      <span className="px-3 py-2 text-gray-400 text-sm">
-                        +{rangeSquares.length - 8} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6 text-gray-500">
-              <Gift className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>All squares have been purchased!</p>
-              <p className="text-sm">Thank you for your support!</p>
-            </div>
-          )}
+      {/* Heart Grid Section */}
+      <section className="px-4 mb-4">
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <Heart className="w-5 h-5 text-primary-pink fill-current" />
+          <h2 className="font-bold text-gray-900">Support Heart</h2>
         </div>
+
+        {availableSquares > 0 ? (
+          <MobileHeartGrid squares={squares} playerId={player.id} />
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 text-center">
+            <Gift className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p className="text-gray-500">All squares have been purchased!</p>
+            <p className="text-sm text-gray-400">Thank you for your support!</p>
+          </div>
+        )}
       </section>
 
       {/* Recent Supporters */}

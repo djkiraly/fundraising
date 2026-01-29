@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
-import { players, squares, users } from '@/db/schema';
+import { players, squares, users, passwordResetTokens } from '@/db/schema';
 import { eq, desc, sql, isNull } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { generateHeartSquares } from '@/lib/squares';
 import { generateUniqueSlug } from '@/lib/utils';
+import { sendEmail, isGmailConfigured, isGmailEnabled } from '@/lib/gmail';
+import { getPasswordSetupEmailHtml } from '@/lib/email-templates';
+import { getConfig, isPasswordEmailEnabled } from '@/lib/config';
+
+const PASSWORD_SETUP_TOKEN_EXPIRY_HOURS = 72; // 3 days
 
 /**
  * GET /api/admin/players
@@ -148,7 +154,62 @@ export async function POST(request: NextRequest) {
       await generateHeartSquares(newPlayer.id);
     }
 
-    return NextResponse.json(newPlayer, { status: 201 });
+    // Send password setup email if enabled and user was created
+    let emailSent = false;
+    let emailError: string | undefined;
+    if (userId && email) {
+      try {
+        const passwordEmailsEnabled = await isPasswordEmailEnabled();
+        const gmailConfigured = await isGmailConfigured();
+        const gmailEnabled = await isGmailEnabled();
+
+        if (passwordEmailsEnabled && gmailConfigured && gmailEnabled) {
+          // Generate a secure random token
+          const token = crypto.randomBytes(32).toString('hex');
+          const expiresAt = new Date(Date.now() + PASSWORD_SETUP_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
+
+          // Save the token to the database
+          await db.insert(passwordResetTokens).values({
+            userId,
+            token,
+            expiresAt,
+          });
+
+          // Generate the setup URL
+          const appUrl = await getConfig('APP_URL') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+          const setupUrl = `${appUrl}/reset-password?token=${token}`;
+
+          // Generate email HTML
+          const html = getPasswordSetupEmailHtml({
+            playerName: name,
+            setupUrl,
+            expiryHours: PASSWORD_SETUP_TOKEN_EXPIRY_HOURS,
+          });
+
+          // Send the email
+          const result = await sendEmail({
+            to: email.toLowerCase(),
+            subject: 'Set Up Your Fundraiser Account Password',
+            html,
+          });
+
+          emailSent = result.success;
+          if (!result.success) {
+            emailError = result.error;
+            console.error('Failed to send password setup email:', result.error);
+          }
+        }
+      } catch (err) {
+        emailError = err instanceof Error ? err.message : 'Failed to send email';
+        console.error('Error sending password setup email:', err);
+      }
+    }
+
+    return NextResponse.json({
+      ...newPlayer,
+      emailSent: userId ? emailSent : undefined,
+      emailError
+    }, { status: 201 });
   } catch (error) {
     console.error('Error creating player:', error);
     return NextResponse.json(

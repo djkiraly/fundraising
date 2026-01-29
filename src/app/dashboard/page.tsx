@@ -8,6 +8,8 @@ import { HeartGrid } from '@/components/ui/heart-grid';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ShareLink } from '@/components/ui/share-link';
 import { DonationFeed } from '@/components/ui/donation-feed';
+import { MessageEditor } from '@/components/dashboard/message-editor';
+import { EmailOutreach } from '@/components/dashboard/email-outreach';
 import { formatCurrency, getPlayerUrl } from '@/lib/utils';
 
 /**
@@ -120,6 +122,16 @@ export default async function DashboardPage() {
               Share this link with friends and family to help reach your goal!
             </p>
             <ShareLink url={playerUrl} playerSlug={player.slug} />
+          </div>
+
+          {/* Message Editor */}
+          <div className="mb-8">
+            <MessageEditor initialMessage={player.message} />
+          </div>
+
+          {/* Email Outreach */}
+          <div className="mb-8">
+            <EmailOutreach playerName={player.name} playerUrl={playerUrl} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

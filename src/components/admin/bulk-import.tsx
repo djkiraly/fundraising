@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, FileSpreadsheet, CheckCircle, XCircle, RefreshCw, Download, Info, Mail } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, XCircle, RefreshCw, Info, Mail } from 'lucide-react';
 
 interface ImportResult {
   success: boolean;
@@ -40,7 +40,6 @@ export function BulkImport() {
   const [results, setResults] = useState<ImportResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
-  const [sendPasswordSetupEmails, setSendPasswordSetupEmails] = useState(true);
 
   const handleImport = async () => {
     if (!data.trim()) {
@@ -57,7 +56,7 @@ export function BulkImport() {
       const response = await fetch('/api/admin/players/bulk-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data, sendPasswordSetupEmails }),
+        body: JSON.stringify({ data }),
       });
 
       const result = await response.json();
@@ -211,7 +210,7 @@ export function BulkImport() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    {sendPasswordSetupEmails && (
+                    {summary?.emailConfigured && (
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email Sent</th>
                     )}
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
@@ -236,7 +235,7 @@ export function BulkImport() {
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-900">{result.name}</td>
                       <td className="px-4 py-2 text-sm text-gray-600">{result.email}</td>
-                      {sendPasswordSetupEmails && (
+                      {summary?.emailConfigured && (
                         <td className="px-4 py-2">
                           {result.success ? (
                             result.emailSent ? (
@@ -285,21 +284,6 @@ export function BulkImport() {
 John Smith\tjohn@example.com\t\t\tjohn.parent@example.com\t150\ttrue\ttrue
 Jane Doe\tjane@example.com\tpassword123\t\t\t200\ttrue\ttrue`}
           />
-        </div>
-
-        {/* Email option */}
-        <div className="flex items-center gap-2 pt-2 pb-2 border-t border-gray-200">
-          <input
-            type="checkbox"
-            id="sendPasswordSetupEmails"
-            checked={sendPasswordSetupEmails}
-            onChange={(e) => setSendPasswordSetupEmails(e.target.checked)}
-            className="h-4 w-4 text-primary-pink focus:ring-primary-pink border-gray-300 rounded"
-          />
-          <label htmlFor="sendPasswordSetupEmails" className="flex items-center gap-2 text-sm text-gray-700">
-            <Mail className="w-4 h-4 text-gray-500" />
-            Send password setup emails to imported players
-          </label>
         </div>
 
         {/* Action buttons */}

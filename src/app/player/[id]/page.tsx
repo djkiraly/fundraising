@@ -8,6 +8,7 @@ import { HeartGrid } from '@/components/ui/heart-grid';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { DonationModal } from '@/components/donation-modal';
 import { DonationFeed } from '@/components/ui/donation-feed';
+import { PlayerMessage } from '@/components/ui/player-message';
 import { Heart } from 'lucide-react';
 import { ShareButton } from '@/components/ui/share-button';
 import { formatCurrency } from '@/lib/utils';
@@ -154,6 +155,13 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           </div>
+
+          {/* Player Message */}
+          {player.message && player.message !== '<p></p>' && (
+            <div className="card mb-8">
+              <PlayerMessage message={player.message} />
+            </div>
+          )}
 
           {/* Instructions */}
           <div className="card mb-8 bg-primary-pink-light/20 border-primary-pink">

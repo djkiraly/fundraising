@@ -37,6 +37,7 @@ export const players = pgTable('players', {
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   photoUrl: text('photo_url'),
   parentEmail: varchar('parent_email', { length: 255 }),
+  message: text('message'), // Rich text message for fundraising page (HTML)
   goal: decimal('goal', { precision: 10, scale: 2 }).notNull().default('100.00'),
   totalRaised: decimal('total_raised', { precision: 10, scale: 2 }).notNull().default('0.00'),
   isActive: boolean('is_active').notNull().default(true),

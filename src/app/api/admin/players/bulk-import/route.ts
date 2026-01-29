@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { data, sendPasswordSetupEmails = false } = body;
+    const { data } = body;
 
     if (!data || typeof data !== 'string') {
       return NextResponse.json(
@@ -58,16 +58,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email is configured when sendPasswordSetupEmails is requested
-    let canSendEmails = false;
-    let appUrl = '';
-    if (sendPasswordSetupEmails) {
-      const gmailConfigured = await isGmailConfigured();
-      const gmailEnabled = await isGmailEnabled();
-      const passwordEmailsEnabled = await isPasswordEmailEnabled();
-      canSendEmails = gmailConfigured && gmailEnabled && passwordEmailsEnabled;
-      appUrl = await getConfig('APP_URL') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    }
+    // Check if email is configured and enabled (automatic based on settings)
+    const gmailConfigured = await isGmailConfigured();
+    const gmailEnabled = await isGmailEnabled();
+    const passwordEmailsEnabled = await isPasswordEmailEnabled();
+    const canSendEmails = gmailConfigured && gmailEnabled && passwordEmailsEnabled;
+    const appUrl = canSendEmails
+      ? (await getConfig('APP_URL') || process.env.NEXTAUTH_URL || 'http://localhost:3000')
+      : '';
 
     // Parse tab-delimited data
     const lines = data.trim().split('\n');
@@ -259,10 +257,10 @@ export async function POST(request: NextRequest) {
           await generateHeartSquares(newPlayer.id);
         }
 
-        // Send password setup email if requested and email is configured
+        // Send password setup email if email is configured and enabled
         let emailSent = false;
         let emailError: string | undefined;
-        if (sendPasswordSetupEmails && canSendEmails) {
+        if (canSendEmails) {
           try {
             // Generate a secure random token
             const token = crypto.randomBytes(32).toString('hex');
@@ -307,7 +305,7 @@ export async function POST(request: NextRequest) {
           name: row.name,
           email: row.email,
           playerId: newPlayer.id,
-          emailSent: sendPasswordSetupEmails ? emailSent : undefined,
+          emailSent: canSendEmails ? emailSent : undefined,
           emailError,
         });
         successCount++;
@@ -325,7 +323,7 @@ export async function POST(request: NextRequest) {
 
     // Count emails sent
     const emailsSent = results.filter(r => r.emailSent).length;
-    const emailsFailed = results.filter(r => r.success && sendPasswordSetupEmails && !r.emailSent).length;
+    const emailsFailed = results.filter(r => r.success && canSendEmails && !r.emailSent).length;
 
     return NextResponse.json({
       success: true,
@@ -333,9 +331,9 @@ export async function POST(request: NextRequest) {
         total: dataRows.length,
         successful: successCount,
         failed: errorCount,
-        emailsSent: sendPasswordSetupEmails ? emailsSent : undefined,
-        emailsFailed: sendPasswordSetupEmails ? emailsFailed : undefined,
-        emailConfigured: sendPasswordSetupEmails ? canSendEmails : undefined,
+        emailsSent,
+        emailsFailed,
+        emailConfigured: canSendEmails,
       },
       results,
     });
