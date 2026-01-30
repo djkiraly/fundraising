@@ -25,10 +25,26 @@ export default async function AdminPage() {
     redirect('/login?callbackUrl=/admin');
   }
 
-  // Fetch all active (non-deleted) players
+  // Fetch all active (non-deleted) players with lastLogin from users table
   const allPlayers = await db
-    .select()
+    .select({
+      id: players.id,
+      userId: players.userId,
+      name: players.name,
+      slug: players.slug,
+      photoUrl: players.photoUrl,
+      parentEmail: players.parentEmail,
+      message: players.message,
+      goal: players.goal,
+      totalRaised: players.totalRaised,
+      isActive: players.isActive,
+      deletedAt: players.deletedAt,
+      createdAt: players.createdAt,
+      updatedAt: players.updatedAt,
+      lastLogin: users.lastLogin,
+    })
     .from(players)
+    .leftJoin(users, eq(players.userId, users.id))
     .where(isNull(players.deletedAt))
     .orderBy(desc(players.totalRaised));
 

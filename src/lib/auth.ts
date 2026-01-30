@@ -3,7 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { logLogin, logLoginFailed } from '@/lib/audit';
 
 declare module 'next-auth' {
@@ -122,7 +122,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
             email: user.email,
           }),
           db.update(users)
-            .set({ lastLogin: sql`NOW()` })
+            .set({ lastLogin: new Date() })
             .where(eq(users.id, user.id)),
         ]);
       }
