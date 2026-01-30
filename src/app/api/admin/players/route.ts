@@ -24,7 +24,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all active (non-deleted) players with their square stats
+    // Fetch all active (non-deleted) players with their square stats and user info
     const allPlayers = await db
       .select({
         id: players.id,
@@ -37,8 +37,10 @@ export async function GET() {
         isActive: players.isActive,
         createdAt: players.createdAt,
         updatedAt: players.updatedAt,
+        lastLogin: users.lastLogin,
       })
       .from(players)
+      .leftJoin(users, eq(players.userId, users.id))
       .where(isNull(players.deletedAt))
       .orderBy(desc(players.createdAt));
 

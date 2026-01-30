@@ -3,7 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { logLogin, logLoginFailed } from '@/lib/audit';
 
 declare module 'next-auth' {
@@ -114,12 +114,17 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   },
   events: {
     async signIn({ user }) {
-      // Log successful login
+      // Log successful login and update lastLogin timestamp
       if (user.id && user.email) {
-        await logLogin({
-          userId: user.id,
-          email: user.email,
-        });
+        await Promise.all([
+          logLogin({
+            userId: user.id,
+            email: user.email,
+          }),
+          db.update(users)
+            .set({ lastLogin: sql`NOW()` })
+            .where(eq(users.id, user.id)),
+        ]);
       }
     },
   },

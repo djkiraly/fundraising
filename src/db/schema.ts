@@ -25,6 +25,7 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 255 }).notNull(),
   passwordHash: text('password_hash').notNull(),
   role: userRoleEnum('role').notNull().default('player'),
+  lastLogin: timestamp('last_login'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

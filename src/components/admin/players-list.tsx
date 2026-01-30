@@ -5,11 +5,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Player } from '@/db/schema';
+
+interface PlayerWithLogin extends Player {
+  lastLogin?: Date | string | null;
+}
 import { formatCurrency, calculateProgress } from '@/lib/utils';
 import { ExternalLink, Trophy, Shuffle, RefreshCw, Plus, Pencil, Trash2, X, DollarSign, Mail, Search, Filter } from 'lucide-react';
 
 interface PlayersListProps {
-  players: Player[];
+  players: PlayerWithLogin[];
 }
 
 interface PlayerFormData {
@@ -51,6 +55,30 @@ const initialManualDonationData: ManualDonationFormData = {
   notes: '',
   isAnonymous: false,
 };
+
+/**
+ * Format last login timestamp in a human-readable way
+ */
+function formatLastLogin(dateInput: Date | string): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) {
+    return 'Just now';
+  } else if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  } else {
+    return date.toLocaleDateString();
+  }
+}
 
 /**
  * Players list for admin with CRUD operations
@@ -528,6 +556,9 @@ export function PlayersList({ players }: PlayersListProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Last Login
+              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
@@ -610,6 +641,17 @@ export function PlayersList({ players }: PlayersListProps) {
                     >
                       {player.isActive ? 'Active' : 'Inactive'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-600">
+                      {player.lastLogin ? (
+                        <span title={new Date(player.lastLogin).toLocaleString()}>
+                          {formatLastLogin(player.lastLogin)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Never</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">

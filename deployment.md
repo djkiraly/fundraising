@@ -601,12 +601,15 @@ When updating, ensure you run `npm run db:migrate` to apply any new migrations. 
 
 | Migration | Description |
 |-----------|-------------|
+| `0011_pretty_blue_marvel.sql` | Adds `lastLogin` field to users table for tracking login timestamps |
 | `0010_aspiring_epoch.sql` | Adds `message` field to players table for rich text personal messages |
 
 Players can now add personal messages to their fundraising pages via the dashboard. The message supports:
 - Bold, italic, underline text formatting
 - Left, center, right alignment
 - Messages are sanitized server-side to prevent XSS attacks
+
+The admin player management section now displays a "Last Login" column showing when each player last logged in. This helps admins identify inactive players or track engagement.
 
 ## Support
 
