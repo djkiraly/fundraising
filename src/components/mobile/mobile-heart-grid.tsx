@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingCart, X } from 'lucide-react';
+import { trackEvent, ANALYTICS_EVENTS } from '@/lib/analytics';
 
 interface Square {
   id: string;
@@ -18,14 +20,16 @@ interface Square {
 interface MobileHeartGridProps {
   squares: Square[];
   playerId: string;
+  playerSlug?: string;
 }
 
 /**
  * Mobile-optimized heart-shaped grid
  * Renders squares in heart formation with touch-friendly interactions
  */
-export function MobileHeartGrid({ squares, playerId }: MobileHeartGridProps) {
+export function MobileHeartGrid({ squares, playerId, playerSlug }: MobileHeartGridProps) {
   const [selectedSquares, setSelectedSquares] = useState<Set<string>>(new Set());
+  const router = useRouter();
 
   // Group squares by position
   const squareMap = new Map(
@@ -56,14 +60,22 @@ export function MobileHeartGrid({ squares, playerId }: MobileHeartGridProps) {
     });
   };
 
-  // Handle checkout
+  // Handle checkout - navigate to player page with squares in URL to trigger donation modal
   const handleCheckout = () => {
     if (selectedSquares.size > 0) {
-      // Dispatch event to open donation modal with selected squares
-      const squareIds = Array.from(selectedSquares);
-      window.dispatchEvent(new CustomEvent('openDonationModal', {
-        detail: { squareIds }
-      }));
+      // Track donation started
+      trackEvent({
+        eventType: ANALYTICS_EVENTS.DONATION_STARTED,
+        path: typeof window !== 'undefined' ? window.location.pathname : '',
+        playerId,
+        value: selectedTotal,
+        metadata: { squareCount: selectedSquares.size },
+      });
+
+      const squareIds = Array.from(selectedSquares).join(',');
+      // Use playerSlug if available, otherwise fall back to playerId
+      const playerIdentifier = playerSlug || playerId;
+      router.push(`/player/${playerIdentifier}?squares=${squareIds}`, { scroll: false });
     }
   };
 

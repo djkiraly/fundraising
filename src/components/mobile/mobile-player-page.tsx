@@ -193,7 +193,7 @@ export function MobilePlayerPage({
         </div>
 
         {availableSquares > 0 ? (
-          <MobileHeartGrid squares={squares} playerId={player.id} />
+          <MobileHeartGrid squares={squares} playerId={player.id} playerSlug={player.slug} />
         ) : (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 text-center">
             <Gift className="w-12 h-12 mx-auto mb-2 text-gray-300" />

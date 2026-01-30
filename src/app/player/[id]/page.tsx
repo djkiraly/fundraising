@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
+import { Suspense } from 'react';
 import { db } from '@/db';
 import { players, squares, donations } from '@/db/schema';
 import { eq, or, desc, and, isNull } from 'drizzle-orm';
@@ -78,7 +79,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           purchasedSquares={purchasedSquares}
           availableSquares={availableSquares}
         />
-        <DonationModal playerId={player.id} />
+        <Suspense fallback={null}>
+          <DonationModal playerId={player.id} />
+        </Suspense>
       </>
     );
   }
@@ -200,7 +203,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           </div>
 
           {/* Donation Modal */}
-          <DonationModal playerId={player.id} />
+          <Suspense fallback={null}>
+            <DonationModal playerId={player.id} />
+          </Suspense>
         </div>
       </main>
     </>
