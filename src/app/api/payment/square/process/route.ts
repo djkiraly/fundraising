@@ -208,13 +208,36 @@ export async function POST(request: NextRequest) {
         totalAmount: totalAmountDollars,
       });
     } else {
-      // Payment failed - log it
-      await logDonationFailed({
-        playerId,
-        amount: totalAmountDollars,
-        reason: `Square payment status: ${paymentResult.status}`,
-        paymentProvider: 'square',
-      });
+      // Payment failed - create failed donation records for tracking
+      const failedDonationRecords = await Promise.all(
+        requestedSquares.map((square) =>
+          db.insert(donations).values({
+            playerId: square.playerId,
+            squareId: square.id,
+            amount: square.value,
+            donorName: isAnonymous ? null : donorName,
+            donorEmail: donorEmail || null,
+            isAnonymous: isAnonymous ?? false,
+            paymentProvider: 'square',
+            squarePaymentId: paymentResult.paymentId,
+            squareOrderId: paymentResult.orderId,
+            status: 'failed',
+          }).returning()
+        )
+      );
+
+      // Log audit for each failed donation
+      await Promise.all(
+        failedDonationRecords.map((records, index) =>
+          logDonationFailed({
+            donationId: records[0].id,
+            playerId,
+            amount: requestedSquares[index].value,
+            reason: `Square payment status: ${paymentResult.status}`,
+            paymentProvider: 'square',
+          })
+        )
+      );
 
       return NextResponse.json(
         {
