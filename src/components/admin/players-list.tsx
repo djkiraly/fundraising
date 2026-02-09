@@ -10,7 +10,7 @@ interface PlayerWithLogin extends Player {
   lastLogin?: Date | string | null;
 }
 import { formatCurrency, calculateProgress } from '@/lib/utils';
-import { ExternalLink, Trophy, Shuffle, RefreshCw, Plus, Pencil, Trash2, X, DollarSign, Mail, Search, Filter } from 'lucide-react';
+import { ExternalLink, Trophy, Shuffle, RefreshCw, Plus, Pencil, Trash2, X, DollarSign, Mail, Search, Filter, Key } from 'lucide-react';
 
 interface PlayersListProps {
   players: PlayerWithLogin[];
@@ -104,6 +104,12 @@ export function PlayersList({ players }: PlayersListProps) {
 
   // Password setup email state
   const [sendingPasswordSetup, setSendingPasswordSetup] = useState<Record<string, boolean>>({});
+
+  // Set password modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordPlayer, setPasswordPlayer] = useState<Player | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -434,6 +440,54 @@ export function PlayersList({ players }: PlayersListProps) {
     }
   };
 
+  // Set password handlers
+  const openPasswordModal = (player: Player) => {
+    setPasswordPlayer(player);
+    setNewPassword('');
+    setShowPasswordModal(true);
+  };
+
+  const closePasswordModal = () => {
+    setShowPasswordModal(false);
+    setPasswordPlayer(null);
+    setNewPassword('');
+  };
+
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordPlayer) return;
+
+    setSavingPassword(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/players/${passwordPlayer.id}/set-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to set password');
+      }
+
+      setMessage({
+        type: 'success',
+        text: data.message || `Password updated for ${passwordPlayer.name}`,
+      });
+      closePasswordModal();
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to set password',
+      });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   return (
     <>
     <div className="card overflow-hidden">
@@ -675,6 +729,13 @@ export function PlayersList({ players }: PlayersListProps) {
                         )}
                       </button>
                       <button
+                        onClick={() => openPasswordModal(player)}
+                        className="p-1.5 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded"
+                        title="Set password"
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => openEditModal(player)}
                         className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
                         title="Edit player"
@@ -903,6 +964,66 @@ export function PlayersList({ players }: PlayersListProps) {
               >
                 {saving && <RefreshCw className="w-4 h-4 animate-spin" />}
                 {editingPlayer ? 'Update Player' : 'Create Player'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {/* Set Password Modal */}
+    {showPasswordModal && passwordPlayer && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-sm w-full">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Set Password</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                For {passwordPlayer.name}
+              </p>
+            </div>
+            <button
+              onClick={closePasswordModal}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSetPassword} className="p-6 space-y-4">
+            <div>
+              <label htmlFor="setPlayerPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                New Password
+              </label>
+              <input
+                id="setPlayerPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Minimum 6 characters"
+                minLength={6}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={closePasswordModal}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingPassword || newPassword.length < 6}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingPassword && <RefreshCw className="w-4 h-4 animate-spin" />}
+                <Key className="w-4 h-4" />
+                Set Password
               </button>
             </div>
           </form>
