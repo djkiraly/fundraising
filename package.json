@@ -1,6 +1,6 @@
 {
   "name": "volleyball-fundraiser",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Volleyball club fundraising platform with heart-shaped donation grids",
   "scripts": {
     "dev": "next dev",

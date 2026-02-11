@@ -37,7 +37,15 @@ interface SquareWebhookEvent {
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get('x-square-hmacsha256-signature') || '';
-  const webhookUrl = request.url;
+
+  // Use the public-facing URL for signature verification, not request.url
+  // which may be an internal proxy URL (e.g., http://localhost:3000/...)
+  // Square computes the HMAC using the notification URL configured in their dashboard
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  const webhookUrl = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}/api/payment/square/webhook`
+    : request.url;
 
   // Verify webhook signature
   const isValid = await verifySquareWebhook(body, signature, webhookUrl);

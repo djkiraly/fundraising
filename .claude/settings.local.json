@@ -11,7 +11,8 @@
       "Bash(npx drizzle-kit:*)",
       "Bash(node:*)",
       "Bash(npx tsx:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(chmod:*)"
     ]
   }
 }
