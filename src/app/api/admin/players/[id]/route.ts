@@ -120,7 +120,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const [existingUserWithEmail] = await db
         .select()
         .from(users)
-        .where(eq(users.email, email))
+        .where(eq(users.email, email.toLowerCase()))
         .limit(1);
 
       if (existingUserWithEmail && existingUserWithEmail.id !== existingPlayer.userId) {

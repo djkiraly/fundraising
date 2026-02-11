@@ -63,7 +63,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.email, credentials.email as string))
+          .where(eq(users.email, (credentials.email as string).toLowerCase()))
           .limit(1);
 
         if (!user) {
