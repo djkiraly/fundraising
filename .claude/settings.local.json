@@ -12,7 +12,8 @@
       "Bash(node:*)",
       "Bash(npx tsx:*)",
       "Bash(npm run lint:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(nul)"
     ]
   }
 }

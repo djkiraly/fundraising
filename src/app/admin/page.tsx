@@ -11,7 +11,7 @@ import { UsersList } from '@/components/admin/users-list';
 import { BulkImport } from '@/components/admin/bulk-import';
 import { DonationsChart } from '@/components/admin/donations-chart';
 import { formatCurrency } from '@/lib/utils';
-import { ClipboardList, Receipt } from 'lucide-react';
+import { ClipboardList, Receipt, FileText } from 'lucide-react';
 import { DeletedPlayersList } from '@/components/admin/deleted-players-list';
 
 /**
@@ -132,7 +132,7 @@ export default async function AdminPage() {
           {/* Financial & Monitoring */}
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Financial & Monitoring</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Transaction Audit */}
               <div className="card">
                 <div className="flex items-center justify-between">
@@ -172,6 +172,29 @@ export default async function AdminPage() {
                   </div>
                   <Link
                     href="/admin/audit-logs"
+                    className="btn-primary"
+                  >
+                    View
+                  </Link>
+                </div>
+              </div>
+
+              {/* Reports */}
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Reports</h3>
+                      <p className="text-sm text-gray-600">
+                        Export donor data by player and date
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/admin/reports"
                     className="btn-primary"
                   >
                     View
