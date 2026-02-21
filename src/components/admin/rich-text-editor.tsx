@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Bold, Italic, Underline, Type, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -15,17 +15,37 @@ interface RichTextEditorProps {
  */
 export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const isInternalChange = useRef(false);
   const [fontSize, setFontSize] = useState<string>('16');
+  const [isEmpty, setIsEmpty] = useState(!value);
 
-  const execCommand = useCallback((command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    // Update the parent with the new content
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+  // Only sync innerHTML from the prop when it changes externally (not from user typing)
+  useEffect(() => {
+    if (isInternalChange.current) {
+      isInternalChange.current = false;
+      return;
     }
-    // Keep focus on editor
-    editorRef.current?.focus();
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
+    }
+    setIsEmpty(!value);
+  }, [value]);
+
+  const notifyChange = useCallback(() => {
+    if (editorRef.current) {
+      isInternalChange.current = true;
+      const html = editorRef.current.innerHTML;
+      const textContent = editorRef.current.textContent || '';
+      setIsEmpty(textContent.trim().length === 0 && !html.includes('<img'));
+      onChange(html);
+    }
   }, [onChange]);
+
+  const execCommand = useCallback((command: string, val?: string) => {
+    document.execCommand(command, false, val);
+    notifyChange();
+    editorRef.current?.focus();
+  }, [notifyChange]);
 
   const handleBold = () => execCommand('bold');
   const handleItalic = () => execCommand('italic');
@@ -36,24 +56,17 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
   const handleFontSize = (size: string) => {
     setFontSize(size);
-    // Use fontSize command with pixel value via style
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
       if (!range.collapsed) {
-        // Wrap selection in a span with font-size
         const span = document.createElement('span');
         span.style.fontSize = `${size}px`;
         try {
           range.surroundContents(span);
-          // Update the parent with the new content
-          if (editorRef.current) {
-            onChange(editorRef.current.innerHTML);
-          }
+          notifyChange();
         } catch {
-          // If surroundContents fails (selection spans multiple elements), use execCommand
           execCommand('fontSize', '7');
-          // Then find the font element and replace with span
           if (editorRef.current) {
             const fonts = editorRef.current.querySelectorAll('font[size="7"]');
             fonts.forEach(font => {
@@ -62,7 +75,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
               newSpan.innerHTML = font.innerHTML;
               font.parentNode?.replaceChild(newSpan, font);
             });
-            onChange(editorRef.current.innerHTML);
+            notifyChange();
           }
         }
       }
@@ -71,14 +84,11 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   };
 
   const handleInput = () => {
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
-    }
+    notifyChange();
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    // Get plain text and insert it
     const text = e.clipboardData.getData('text/plain');
     document.execCommand('insertText', false, text);
   };
@@ -169,21 +179,17 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         onInput={handleInput}
         onPaste={handlePaste}
         className="min-h-[120px] p-3 focus:outline-none focus:ring-2 focus:ring-primary-pink focus:ring-inset text-left"
-        dangerouslySetInnerHTML={{ __html: value }}
         data-placeholder={placeholder}
-        style={{
-          position: 'relative',
-          direction: 'ltr',
-          unicodeBidi: 'plaintext',
-        }}
+        suppressContentEditableWarning
       />
 
       {/* Placeholder styling */}
       <style jsx>{`
-        [contenteditable]:empty:before {
+        [contenteditable][data-placeholder]:empty:before {
           content: attr(data-placeholder);
           color: #9ca3af;
           pointer-events: none;
+          display: block;
         }
       `}</style>
     </div>
