@@ -15,37 +15,36 @@ interface RichTextEditorProps {
  */
 export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const isInternalChange = useRef(false);
+  const lastHtml = useRef(value);
+  const onChangeRef = useRef(onChange);
   const [fontSize, setFontSize] = useState<string>('16');
-  const [isEmpty, setIsEmpty] = useState(!value);
 
-  // Only sync innerHTML from the prop when it changes externally (not from user typing)
+  // Keep onChange ref current to avoid stale closures
   useEffect(() => {
-    if (isInternalChange.current) {
-      isInternalChange.current = false;
-      return;
-    }
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // Sync innerHTML from prop only when value changes externally
+  useEffect(() => {
+    if (editorRef.current && value !== lastHtml.current) {
       editorRef.current.innerHTML = value || '';
+      lastHtml.current = value;
     }
-    setIsEmpty(!value);
   }, [value]);
 
-  const notifyChange = useCallback(() => {
+  const emitChange = useCallback(() => {
     if (editorRef.current) {
-      isInternalChange.current = true;
       const html = editorRef.current.innerHTML;
-      const textContent = editorRef.current.textContent || '';
-      setIsEmpty(textContent.trim().length === 0 && !html.includes('<img'));
-      onChange(html);
+      lastHtml.current = html;
+      onChangeRef.current(html);
     }
-  }, [onChange]);
+  }, []);
 
   const execCommand = useCallback((command: string, val?: string) => {
     document.execCommand(command, false, val);
-    notifyChange();
+    emitChange();
     editorRef.current?.focus();
-  }, [notifyChange]);
+  }, [emitChange]);
 
   const handleBold = () => execCommand('bold');
   const handleItalic = () => execCommand('italic');
@@ -64,7 +63,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         span.style.fontSize = `${size}px`;
         try {
           range.surroundContents(span);
-          notifyChange();
+          emitChange();
         } catch {
           execCommand('fontSize', '7');
           if (editorRef.current) {
@@ -75,7 +74,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
               newSpan.innerHTML = font.innerHTML;
               font.parentNode?.replaceChild(newSpan, font);
             });
-            notifyChange();
+            emitChange();
           }
         }
       }
@@ -84,7 +83,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   };
 
   const handleInput = () => {
-    notifyChange();
+    emitChange();
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
