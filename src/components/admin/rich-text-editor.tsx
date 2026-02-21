@@ -165,13 +165,16 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
       <div
         ref={editorRef}
         contentEditable
+        dir="ltr"
         onInput={handleInput}
         onPaste={handlePaste}
-        className="min-h-[120px] p-3 focus:outline-none focus:ring-2 focus:ring-primary-pink focus:ring-inset"
+        className="min-h-[120px] p-3 focus:outline-none focus:ring-2 focus:ring-primary-pink focus:ring-inset text-left"
         dangerouslySetInnerHTML={{ __html: value }}
         data-placeholder={placeholder}
         style={{
           position: 'relative',
+          direction: 'ltr',
+          unicodeBidi: 'plaintext',
         }}
       />
 
