@@ -19,6 +19,9 @@ import { PlayerPageTracker } from '@/components/player-page-tracker';
 import { isMobileDevice } from '@/lib/device-detection';
 import { MobilePlayerPage } from '@/components/mobile/mobile-player-page';
 
+// Must be dynamic so fundraiser enabled/disabled toggle takes effect immediately
+export const dynamic = 'force-dynamic';
+
 // UUID regex pattern for backwards compatibility
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

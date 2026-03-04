@@ -11,6 +11,9 @@ import { PlayerSearch } from '@/components/ui/player-search';
 import { isMobileDevice } from '@/lib/device-detection';
 import { MobileHome } from '@/components/mobile/mobile-home';
 
+// Must be dynamic so fundraiser enabled/disabled toggle takes effect immediately
+export const dynamic = 'force-dynamic';
+
 /**
  * Home page - displays all active players
  * Renders mobile-optimized version for mobile browsers

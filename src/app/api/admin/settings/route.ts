@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { settings, settingsAuditLog } from '@/db/schema';
@@ -112,6 +113,12 @@ export async function POST(request: NextRequest) {
       newValue: isSecret ? encrypt(value) : value,
     });
 
+    // Revalidate public pages when fundraiser toggle changes
+    if (key === 'FUNDRAISER_ENABLED') {
+      revalidatePath('/', 'page');
+      revalidatePath('/player/[id]', 'page');
+    }
+
     return NextResponse.json({
       success: true,
       setting: {
@@ -200,6 +207,12 @@ export async function PUT(request: NextRequest) {
     // Reset Square client if Square settings changed
     if (SQUARE_SETTING_KEYS.includes(key)) {
       resetSquareClient();
+    }
+
+    // Revalidate public pages when fundraiser toggle changes
+    if (key === 'FUNDRAISER_ENABLED') {
+      revalidatePath('/', 'page');
+      revalidatePath('/player/[id]', 'page');
     }
 
     return NextResponse.json({
