@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { Suspense } from 'react';
 import { db } from '@/db';
@@ -13,6 +14,7 @@ import { PlayerMessage } from '@/components/ui/player-message';
 import { Heart } from 'lucide-react';
 import { ShareButton } from '@/components/ui/share-button';
 import { formatCurrency } from '@/lib/utils';
+import { isFundraiserEnabled } from '@/lib/config';
 import { PlayerPageTracker } from '@/components/player-page-tracker';
 import { isMobileDevice } from '@/lib/device-detection';
 import { MobilePlayerPage } from '@/components/mobile/mobile-player-page';
@@ -45,6 +47,26 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
   if (!player) {
     notFound();
+  }
+
+  // Check if fundraiser is enabled
+  const fundraiserEnabled = await isFundraiserEnabled();
+  if (!fundraiserEnabled) {
+    return (
+      <>
+        <Navbar />
+        <main className="min-h-screen bg-gradient-to-b from-pink-50 to-white flex items-center justify-center px-4">
+          <div className="text-center">
+            <Heart className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">The fundraiser is not currently active</h1>
+            <p className="text-lg text-gray-600 mb-6">Check back soon for updates!</p>
+            <Link href="/" className="text-primary-pink hover:underline font-medium">
+              Back to Home
+            </Link>
+          </div>
+        </main>
+      </>
+    );
   }
 
   // Fetch player's squares and donations

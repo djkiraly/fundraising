@@ -323,6 +323,15 @@ export async function deleteConfig(key: string): Promise<void> {
 }
 
 /**
+ * Check if the fundraiser is enabled
+ * Returns true by default if not configured
+ */
+export async function isFundraiserEnabled(): Promise<boolean> {
+  const value = await getConfig('FUNDRAISER_ENABLED');
+  return value !== 'false';
+}
+
+/**
  * Get Gmail configuration
  * Returns all Gmail-related keys needed for OAuth and sending emails
  */

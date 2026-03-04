@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Eye, EyeOff, RefreshCw, CheckCircle, XCircle, Mail, ExternalLink, CreditCard, Zap, Palette, Send, MessageSquare, Shield } from 'lucide-react';
+import { Save, Eye, EyeOff, RefreshCw, CheckCircle, XCircle, Mail, ExternalLink, CreditCard, Zap, Palette, Send, MessageSquare, Shield, Heart } from 'lucide-react';
 import { RichTextEditor } from './rich-text-editor';
 
 interface Setting {
@@ -140,6 +140,13 @@ const DEFAULT_SETTINGS: Array<{
     isSecret: false,
     description: 'Application URL (used in emails)',
     placeholder: 'https://your-domain.com',
+  },
+  {
+    key: 'FUNDRAISER_ENABLED',
+    category: 'app',
+    isSecret: false,
+    description: 'Enable or disable the fundraiser',
+    defaultValue: 'true',
   },
   // Gmail settings
   {
@@ -281,6 +288,8 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
   // Password email toggle state
   const [togglingPasswordEmail, setTogglingPasswordEmail] = useState(false);
 
+  // Fundraiser toggle state
+  const [togglingFundraiser, setTogglingFundraiser] = useState(false);
   // reCAPTCHA toggle state
   const [togglingRecaptcha, setTogglingRecaptcha] = useState(false);
 
@@ -588,6 +597,40 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
       setError(err instanceof Error ? err.message : 'Failed to update password email setting');
     } finally {
       setTogglingPasswordEmail(false);
+    }
+  };
+
+  // Fundraiser enabled state
+  const isFundraiserEnabled = fieldValues['FUNDRAISER_ENABLED'] !== 'false';
+
+  const handleFundraiserToggle = async () => {
+    setTogglingFundraiser(true);
+    setError(null);
+
+    try {
+      const newFundraiserEnabled = !isFundraiserEnabled;
+
+      await fetch('/api/admin/settings', {
+        method: settingExists('FUNDRAISER_ENABLED') ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'FUNDRAISER_ENABLED',
+          value: newFundraiserEnabled.toString(),
+          category: 'app',
+          isSecret: false,
+          description: 'Enable or disable the fundraiser',
+        }),
+      });
+
+      setFieldValues(prev => ({
+        ...prev,
+        FUNDRAISER_ENABLED: newFundraiserEnabled.toString(),
+      }));
+      setSavedKeys(prev => new Set([...prev, 'FUNDRAISER_ENABLED']));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update fundraiser setting');
+    } finally {
+      setTogglingFundraiser(false);
     }
   };
 
@@ -901,6 +944,44 @@ export function SettingsForm({ initialSettings, onTestStripe, onTestSquare, onTe
           <p className="text-sm text-blue-700">
             <strong>Important:</strong> Set this to your production URL (e.g., https://fundraiser.yourdomain.com) to ensure email links work correctly.
           </p>
+        </div>
+
+        {/* Fundraiser Enable/Disable Toggle */}
+        <div className={`mt-6 p-4 rounded-lg border ${
+          isFundraiserEnabled ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                isFundraiserEnabled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                <Heart className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900">Fundraiser</h4>
+                <p className="text-xs text-gray-500">
+                  {isFundraiserEnabled ? 'Fundraiser is live — player pages and leaderboard are visible' : 'Fundraiser is disabled — public pages show a closed message'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleFundraiserToggle}
+              disabled={togglingFundraiser}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isFundraiserEnabled ? 'bg-green-500' : 'bg-gray-300'
+              } ${togglingFundraiser ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isFundraiserEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+          {togglingFundraiser && (
+            <div className="mt-2 flex items-center gap-2 text-gray-500 text-sm">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              Updating...
+            </div>
+          )}
         </div>
       </div>
 

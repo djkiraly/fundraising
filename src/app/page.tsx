@@ -6,7 +6,7 @@ import { desc, eq, and, isNull } from 'drizzle-orm';
 import { Navbar } from '@/components/ui/navbar';
 import { formatCurrency } from '@/lib/utils';
 import { Heart, Trophy, Medal } from 'lucide-react';
-import { getBrandingConfig } from '@/lib/config';
+import { getBrandingConfig, isFundraiserEnabled } from '@/lib/config';
 import { PlayerSearch } from '@/components/ui/player-search';
 import { isMobileDevice } from '@/lib/device-detection';
 import { MobileHome } from '@/components/mobile/mobile-home';
@@ -16,14 +16,15 @@ import { MobileHome } from '@/components/mobile/mobile-home';
  * Renders mobile-optimized version for mobile browsers
  */
 export default async function HomePage() {
-  // Fetch all active (non-deleted) players, branding config, and check device in parallel
-  const [allPlayers, branding, isMobile] = await Promise.all([
+  // Fetch all active (non-deleted) players, branding config, fundraiser status, and check device in parallel
+  const [allPlayers, branding, fundraiserEnabled, isMobile] = await Promise.all([
     db
       .select()
       .from(players)
       .where(and(eq(players.isActive, true), isNull(players.deletedAt)))
       .orderBy(desc(players.totalRaised)),
     getBrandingConfig(),
+    isFundraiserEnabled(),
     isMobileDevice(),
   ]);
 
@@ -32,7 +33,33 @@ export default async function HomePage() {
     return (
       <>
         <Navbar />
-        <MobileHome players={allPlayers} branding={branding} />
+        {fundraiserEnabled ? (
+          <MobileHome players={allPlayers} branding={branding} />
+        ) : (
+          <main className="min-h-screen bg-gradient-to-b from-pink-50 to-white flex items-center justify-center px-4">
+            <div className="text-center">
+              <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Fundraiser is Currently Closed</h1>
+              <p className="text-gray-600">Check back soon for updates!</p>
+            </div>
+          </main>
+        )}
+      </>
+    );
+  }
+
+  // Fundraiser disabled — desktop
+  if (!fundraiserEnabled) {
+    return (
+      <>
+        <Navbar />
+        <main className="min-h-screen bg-gradient-to-b from-pink-50 to-white flex items-center justify-center px-4">
+          <div className="text-center">
+            <Heart className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">Fundraiser is Currently Closed</h1>
+            <p className="text-xl text-gray-600">Check back soon for updates!</p>
+          </div>
+        </main>
       </>
     );
   }
